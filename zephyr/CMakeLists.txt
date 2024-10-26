@@ -12,6 +12,16 @@ endfunction()
 
 rename_if_exists("${CMAKE_CURRENT_SOURCE_DIR}/Kconfig.disabled" "${CMAKE_CURRENT_SOURCE_DIR}/Kconfig") # if the Kconfig file was left renamed from a previous run
 
+# Pull in ETL
+include(FetchContent)
+FetchContent_Declare(
+        etl
+        GIT_REPOSITORY https://github.com/ETLCPP/etl.git
+        GIT_TAG 20.39.4  # Use a specific tag or commit for stability, e.g., v3.8.0
+)
+FetchContent_MakeAvailable(etl)
+
+
 file(GLOB_RECURSE SPINE_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/*.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/*.c
@@ -28,17 +38,17 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/../.pio")
     set(SPINE_TARGET app)
     project(Spine)
     target_sources(${SPINE_TARGET} PRIVATE ${SPINE_SOURCES})
-    target_include_directories(${SPINE_TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../src)
-    target_compile_definitions(${SPINE_TARGET} PUBLIC ZEPHYR)
 else ()
     message(STATUS "Spine building modality: zephyr")
     find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
     set(SPINE_TARGET spine)
     zephyr_library_named(${SPINE_TARGET})
     zephyr_library_sources(${SPINE_SOURCES})
-    target_include_directories(${SPINE_TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../src)
-    target_compile_definitions(${SPINE_TARGET} PUBLIC ZEPHYR)
+
 endif ()
+
+target_include_directories(${SPINE_TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../src ${etl_SOURCE_DIR}/include)
+target_compile_definitions(${SPINE_TARGET} PUBLIC ZEPHYR)
 
 if (CONFIG_SPINE_DEBUG)
     target_compile_definitions(${SPINE_TARGET} PUBLIC DEBUG_SPINE)
