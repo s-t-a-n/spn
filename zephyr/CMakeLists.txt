@@ -41,11 +41,11 @@ else ()
 endif ()
 
 if (CONFIG_SPINE_DEBUG)
-    target_compile_definitions(${SPINE_TARGET} PRIVATE DEBUG_SPINE)
+    target_compile_definitions(${SPINE_TARGET} PUBLIC DEBUG_SPINE)
 endif ()
 
 if (CONFIG_SPINE_LOGGING_BUFFER_STACKSIZE)
-    target_compile_definitions(${SPINE_TARGET} PRIVATE SPINE_LOGGING_MAX_MSG_SIZE=${CONFIG_SPINE_LOGGING_MAX_MSG_SIZE})
+    target_compile_definitions(${SPINE_TARGET} PUBLIC SPINE_LOGGING_MAX_MSG_SIZE=${CONFIG_SPINE_LOGGING_MAX_MSG_SIZE})
 endif ()
 
 
