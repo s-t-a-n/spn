@@ -4,18 +4,16 @@
 #include "spine/core/logging.hpp"
 #include "spine/platform/hal.hpp"
 
-#include <memory>
-
 namespace spn::core {
 
 namespace {
-std::unique_ptr<ExceptionHandler>& eh_instance() {
-    static std::unique_ptr<ExceptionHandler> handler = nullptr;
+etl::unique_ptr<ExceptionHandler>& eh_instance() {
+    static etl::unique_ptr<ExceptionHandler> handler = {};
     return handler;
 }
 } // namespace
 
-std::unique_ptr<ExceptionHandler> set_machine_exception_handler(std::unique_ptr<ExceptionHandler> handler) {
+etl::unique_ptr<ExceptionHandler> set_machine_exception_handler(etl::unique_ptr<ExceptionHandler> handler) {
     SPN_DBG("Replacing machine wide exception handler: %p", handler.get());
     eh_instance().swap(handler);
     return handler;

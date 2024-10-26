@@ -1,24 +1,24 @@
 #pragma once
 
-#include <memory>
+#include <etl/memory.h>
 
 namespace spn::core {
 class Exception;
 
 struct ExceptionHandler {
     virtual ~ExceptionHandler() = default;
-    virtual void handle_exception(const Exception& exception){};
+    virtual void handle_exception(const Exception& exception) {};
 };
 
 /// Set a machine global exception handler which will be called when an exception is thrown. Returns the old handler.
-std::unique_ptr<ExceptionHandler> set_machine_exception_handler(std::unique_ptr<ExceptionHandler> handler);
+etl::unique_ptr<ExceptionHandler> set_machine_exception_handler(etl::unique_ptr<ExceptionHandler> handler);
 
 /// Returns global exception handler
 ExceptionHandler* machine_exception_handler();
 
 class Exception {
 public:
-    explicit Exception(const char* error_msg) : _error_msg(error_msg){};
+    explicit Exception(const char* error_msg) : _error_msg(error_msg) {};
     Exception(const Exception& other) = default;
     virtual ~Exception() = default;
 

@@ -193,7 +193,7 @@ void ut_unit_exception_handling() {
         void handle_exception(const spn::core::Exception& e) override { throw std::runtime_error(e.what()); }
     };
 
-    auto original_handler = set_machine_exception_handler(std::make_unique<EH>());
+    auto original_handler = set_machine_exception_handler(etl::unique_ptr<EH>(new EH));
     try {
         joule(100) / 0;
         TEST_FAIL_MESSAGE("Expected exception not thrown");
@@ -385,7 +385,7 @@ void ut_unit_compound_exception_handling() {
         void handle_exception(const spn::core::Exception& e) override { throw std::runtime_error(e.what()); }
     };
 
-    auto original_handler = set_machine_exception_handler(std::make_unique<EH>());
+    auto original_handler = set_machine_exception_handler(etl::unique_ptr<EH>(new EH));
     try {
         (void)mls(litre_ml(600), time_s(0)).raw();
         TEST_FAIL_MESSAGE("Expected exception not thrown");
