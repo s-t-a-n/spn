@@ -58,11 +58,18 @@ std::size_t find_first_of(const std::string_view& strv, const std::string_view& 
 
 float to_float(const std::string_view& sv) {
     char* end;
-    float result = std::strtof(sv.data(), &end);
 
-    if (end == sv.data() || *end != '\0') {
-        return 0.0f; // Handle conversion error
-    }
+    float result = std::strtof(sv.data(), &end);
+    if (end == sv.data() || *end != '\0') return 0.0f;
+
+    return result;
+}
+
+uint32_t to_uint32(const std::string_view& sv, int base) {
+    char* end;
+
+    uint32_t result = std::strtoul(sv.data(), &end, base);
+    if (end == sv.data() || *end != '\0') return 0;
 
     return result;
 }

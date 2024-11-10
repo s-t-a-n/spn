@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - Added zephyr/Kconfig to control builddefines in Zephyr's tooling
+- Added to_uint32 string parser
 
 ### Changed
 

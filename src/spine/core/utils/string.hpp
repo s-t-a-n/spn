@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 
 namespace spn::core::utils {
@@ -23,6 +24,10 @@ std::size_t find_first_of(const std::string_view& strv, const std::string_view& 
 /// Returns a float read from a string_view, or 0 when no float could be found
 // float to_float(const std::string_view& sv) ;
 
+/// Returns a float read from a string_view, or 0 when no float could be found
 float to_float(const std::string_view& sv);
+
+/// Returns a uint32 read from a string_view, or 0 when no uint32 could be found
+uint32_t to_uint32(const std::string_view& sv, int base = 10);
 
 } // namespace spn::core::utils
