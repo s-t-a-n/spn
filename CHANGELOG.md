@@ -19,12 +19,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 -->
 
-## [Unreleased]
+## [0.3.1] - 2025-07-08
 
 ### Added
 
 - Added zephyr/Kconfig to control builddefines in Zephyr's tooling
 - Added to_uint32 string parser
+- Added BidirectionalList<T> and corresponding BidirectionalLink<T> to structure/bidirectional_list.hpp
 
 ### Changed
 
@@ -34,8 +35,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - `spn_assert` was not printing the file, linenumber and function because of use of the `SPN_ERR()` call. This fixes
   that by making spn_assert print through `SPN_DBG()`
-
-### Removed
 
 ## [0.3.0] - 2024-10-22
 
@@ -57,8 +56,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Fixed minor CI-problems such as cache validation
-
-### Removed
 
 ## [0.2.0] - 2024-10-16
 
