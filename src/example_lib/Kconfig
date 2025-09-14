@@ -1,0 +1,3 @@
+config SPN_EXAMPLE_LIB
+    bool "Enable SPN example_lib"
+    default y

@@ -19,6 +19,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 -->
 
+## [0.4.0] - UNRELEASED
+
+Major overhaul. As part of a move to commit to the use of Zephyr and ETL all existing files have been removed to create
+a clean slate.
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+- As part of a move to commit to the use of Zephyr and ETL all existing files have been removed to create
+  a clean slate.
+
 ## [0.3.1] - 2025-07-08
 
 ### Added

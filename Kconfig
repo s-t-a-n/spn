@@ -1,0 +1,5 @@
+menu "SPN Libraries"
+
+rsource "src/Kconfig"
+
+endmenu

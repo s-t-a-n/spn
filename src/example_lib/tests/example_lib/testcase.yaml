@@ -1,0 +1,6 @@
+common:
+  tags: spn example_lib
+  integration_platforms:
+    - native_sim
+tests:
+  spn.example_lib.unit: { }

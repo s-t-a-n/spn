@@ -1,0 +1,8 @@
+name: spn
+build:
+  cmake: .
+  kconfig: Kconfig
+samples:
+  - src/example_lib/samples
+tests:
+  - src/example_lib/tests
