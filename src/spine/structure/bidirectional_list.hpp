@@ -260,7 +260,10 @@ public:
         return *this;
     }
 
-    ~BidirectionalList() = default;
+    ~BidirectionalList() {
+        detach_self();
+        clear();
+    };
 
     iterator begin() noexcept { return {_sentinel._next, &_sentinel}; }
     iterator end() noexcept { return {&_sentinel, &_sentinel}; }
@@ -347,6 +350,11 @@ public:
     iterator erase(Node& n) noexcept { return erase(iterator(&n, &_sentinel)); }
     iterator erase(Node* n) noexcept { return erase(iterator(n, &_sentinel)); }
 
+    void detach_self() noexcept {
+        if (_sentinel._prev) _sentinel._prev->_next = nullptr;
+        if (_sentinel._next) _sentinel._next->_prev = nullptr;
+    }
+
 private:
     static void ensure_detached(Node& n) noexcept {
         if (n._prev || n._next) n.unlink();
@@ -363,6 +371,8 @@ private:
     void init_from_chain(Node* head, Node* tail) noexcept {
         _sentinel._next = head;
         _sentinel._prev = tail;
+        spn_assert(head->_prev == nullptr);
+        spn_assert(head->_next == nullptr);
         head->_prev = &_sentinel;
         tail->_next = &_sentinel;
     }

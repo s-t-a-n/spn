@@ -751,6 +751,33 @@ void ut_bidirectional_list_insert_before_end_after_rend() {
     TEST_ASSERT_EQUAL_INT(2, l.back().value());
 }
 
+// verify ends of trees are tied off at destruction
+void ut_bidirectional_list_untouched_underlying() {
+    static constexpr auto MAX = 10;
+    BidirectionalLink<Node> nodes[MAX];
+
+    TEST_ASSERT_EQUAL(false, nodes[0].has_prev());
+    TEST_ASSERT_EQUAL(false, nodes[MAX - 1].has_next());
+
+    {
+        BidirectionalList<Node> l{};
+        size_t i = 0;
+        for (auto& node : nodes) {
+            l.push_back(node);
+            TEST_ASSERT_EQUAL(true, &node == &nodes[i++]);
+        }
+        l.detach_self();
+    }
+
+    // first node has no predecessor
+    TEST_ASSERT_EQUAL(true, nodes[0].has_next());
+    TEST_ASSERT_EQUAL(false, nodes[0].has_prev());
+
+    // last node has no ancestor
+    TEST_ASSERT_EQUAL(true, nodes[MAX - 1].has_prev());
+    TEST_ASSERT_EQUAL(false, nodes[MAX - 1].has_next());
+}
+
 } // namespace
 
 int run_all_tests() {
@@ -791,6 +818,7 @@ int run_all_tests() {
     RUN_TEST(ut_bidirectional_list_external_unlink_head_and_middle);
     RUN_TEST(ut_bidirectional_list_cross_list_detach_middle);
     RUN_TEST(ut_bidirectional_list_insert_before_end_after_rend);
+    RUN_TEST(ut_bidirectional_list_untouched_underlying);
 
     return UNITY_END();
 }
