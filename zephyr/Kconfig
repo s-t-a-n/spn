@@ -1,7 +1,0 @@
-config SPINE_DEBUG
-    bool "Enable Spine debugging"
-    default n
-
-config SPINE_LOGGING_MAX_MSG_SIZE
-    int "Control Spine's output buffer stack size"
-    default 256
