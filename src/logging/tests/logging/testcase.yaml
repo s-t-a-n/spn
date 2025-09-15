@@ -1,0 +1,4 @@
+tests:
+  logging.basic:
+    tags: logging
+    timeout: 60

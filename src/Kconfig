@@ -1,1 +1,2 @@
 rsource "example_lib/Kconfig"
+rsource "logging/Kconfig"

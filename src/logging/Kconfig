@@ -1,0 +1,7 @@
+config SPN_LOGGING
+    bool "Enable SPN logging utilities"
+    select LOG
+    default y
+    help
+      Enable SPN logging utilities which provide convenient macros
+      for Zephyr's logging system.

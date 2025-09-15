@@ -1,1 +1,2 @@
 add_subdirectory(example_lib)
+add_subdirectory(logging)

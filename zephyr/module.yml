@@ -4,5 +4,7 @@ build:
   kconfig: Kconfig
 samples:
   - src/example_lib/samples
+  - src/logging/samples
 tests:
   - src/example_lib/tests
+  - src/logging/tests
