@@ -1,5 +1,6 @@
 config SPN_CORE
 	bool "SPN Core Library"
+	select ETL
 	default y
 	help
 	  Enable the SPN core library which provides fundamental utilities

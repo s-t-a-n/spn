@@ -1,0 +1,6 @@
+common:
+  tags: spn allocation shared_ptr
+  integration_platforms:
+    - native_sim
+tests:
+  spn.allocation.shared_ptr.unit: { }

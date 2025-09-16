@@ -13,3 +13,16 @@ endif()
 if(CONFIG_SPN_DEBUGGING)
     add_subdirectory(debugging)
 endif()
+
+if(CONFIG_SPN_THREADING)
+    add_subdirectory(threading)
+endif()
+
+if(CONFIG_SPN_ALLOCATION)
+    add_subdirectory(allocation)
+endif()
+
+if(CONFIG_SPN_CONTAINERS)
+    add_subdirectory(containers)
+endif()
+

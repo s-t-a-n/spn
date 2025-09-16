@@ -1,0 +1,6 @@
+common:
+  tags: spn allocation slab
+  integration_platforms:
+    - native_sim
+tests:
+  spn.allocation.slab.unit: { }

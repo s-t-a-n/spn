@@ -1,0 +1,10 @@
+config SPN_ALLOCATION
+    bool "Enable SPN allocation library"
+    select SPN_THREADING
+    select SPN_CORE
+    select SPN_DEBUGGING
+    select SPN_LOGGING
+    select ETL
+    default n
+    help
+      Enable the SPN allocation library

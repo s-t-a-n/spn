@@ -1,0 +1,8 @@
+config SPN_CONTAINERS
+    bool "Enable SPN containers library"
+    select SPN_THREADING
+    select SPN_CORE
+    select ETL
+    default n
+    help
+      Enable the SPN containers library

@@ -1,0 +1,6 @@
+common:
+  tags: spn threading_primitives mutex
+  integration_platforms:
+    - native_sim
+tests:
+  spn.threading_primitives.mutex.unit: { }

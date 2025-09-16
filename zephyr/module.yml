@@ -5,6 +5,9 @@ build:
 samples:
   - src/example_lib/samples
   - src/logging/samples
+  - src/threading/samples
 tests:
   - src/example_lib/tests
   - src/logging/tests
+  - src/threading/tests
+  - src/allocation/tests
