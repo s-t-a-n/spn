@@ -1,0 +1,27 @@
+config SPN_DEBUGGING
+	bool "SPN Debugging Library"
+	select LOG
+	help
+	  Enable the SPN debugging library
+
+if SPN_DEBUGGING
+
+config SPN_ASSERT_LEVEL
+	int "Assertion level"
+	range 0 2
+	default 2
+	help
+	  Control the verbosity of assertions:
+	  0 - Assertions disabled
+	  1 - Minimal assertions (conditions only)
+	  2 - Verbose assertions (with file, line, and condition info)
+
+config SPN_ASSERT_HANDLER
+	bool "Enable custom assertion handler support"
+	default y
+	help
+	  Allow registration of custom handlers for assertions and expectations.
+	  When a handler is registered, assertions will be sent to the handler
+	  instead of triggering kernel panic.
+
+endif # SPN_DEBUGGING
