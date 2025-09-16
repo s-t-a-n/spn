@@ -1,2 +1,4 @@
+rsource "core/Kconfig"
 rsource "example_lib/Kconfig"
 rsource "logging/Kconfig"
+rsource "debugging/Kconfig"
