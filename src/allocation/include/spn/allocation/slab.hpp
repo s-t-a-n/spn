@@ -18,6 +18,7 @@ public:
     static_assert((sizeof(T) % slab_align) == 0, "block size must be multiple of slab_align");
 
     Slab() { k_mem_slab_init(&_slab, _chunk_buffer, sizeof(T), block_count); }
+    ~Slab() = default;
 
     Slab(const Slab& other)      = delete;
     Slab(Slab&& other)           = delete;
@@ -28,7 +29,10 @@ public:
     /// note: returns non-zero on timeout or failure
     int alloc(T** block, k_timeout_t timeout = K_NO_WAIT) {
         if (block == nullptr) return -EINVAL;
-        return k_mem_slab_alloc(&_slab, reinterpret_cast<void**>(block), timeout);
+        void* tmp = nullptr;
+        int   rc  = k_mem_slab_alloc(&_slab, &tmp, timeout);
+        *block    = static_cast<T*>(tmp);
+        return rc;
     }
 
     /// Allocate and construct object
@@ -66,9 +70,11 @@ public:
     }
 
     /// Get number of free chunks
-    size_t        chunks_free() { return k_mem_slab_num_free_get(&_slab); }
+    size_t chunks_free() { return k_mem_slab_num_free_get(&_slab); }
+
     /// Get number of allocated chunks
-    size_t        chunks_allocated() { return k_mem_slab_num_used_get(&_slab); }
+    size_t chunks_allocated() { return k_mem_slab_num_used_get(&_slab); }
+
     /// Get total number of chunks
     static size_t chunks_total() { return block_count; }
 

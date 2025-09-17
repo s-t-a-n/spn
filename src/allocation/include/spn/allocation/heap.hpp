@@ -13,7 +13,12 @@ using unique_ptr = etl::unique_ptr<T, HeapDeleter<T>>;
 /// Heap memory allocator interface
 class IHeap {
 public:
+    IHeap() = default;
     virtual ~IHeap() = default;
+    IHeap(const IHeap&) = delete;
+    IHeap& operator=(const IHeap&) = delete;
+    IHeap(IHeap&&) = delete;
+    IHeap& operator=(IHeap&&) = delete;
 
     /// query capacity in bytes
     virtual size_t capacity() const = 0;
@@ -73,6 +78,7 @@ public:
     static constexpr size_t capacity_bytes = HeapBytes;
 
     Heap() { k_heap_init(&_heap, _buffer, capacity_bytes); }
+    ~Heap() override = default;
 
     Heap(const Heap&)            = delete;
     Heap& operator=(const Heap&) = delete;
