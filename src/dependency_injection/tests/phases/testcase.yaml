@@ -1,0 +1,6 @@
+common:
+  tags: spn dependency_injection
+  integration_platforms:
+    - native_sim
+tests:
+  spn.dependency_injection.phases.unit: { }

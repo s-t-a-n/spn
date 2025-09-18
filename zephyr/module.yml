@@ -3,11 +3,15 @@ build:
   cmake: .
   kconfig: Kconfig
 samples:
+  - src/debugging/samples
+  - src/dependency_injection/samples
   - src/example_lib/samples
   - src/logging/samples
   - src/threading/samples
 tests:
+  - src/allocation/tests
+  - src/debugging/tests
+  - src/dependency_injection/tests
   - src/example_lib/tests
   - src/logging/tests
   - src/threading/tests
-  - src/allocation/tests

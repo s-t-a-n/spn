@@ -1,0 +1,10 @@
+config SPN_DEPENDENCY_INJECTION
+	bool "Enable SPN dependency injection library"
+	select SPN_CORE
+	select ETL
+	default n
+	help
+	  Enable the SPN dependency injection library for compile-time DI.
+	  This library provides a lightweight, compile-time dependency injection
+	  container with support for phased initialization and automatic
+	  dependency resolution.

@@ -16,15 +16,23 @@
 
 // core
 #include "spn/core/enum_flags.hpp"
+#include "spn/core/tuple_utils.hpp"
+#include "spn/core/type_traits.hpp"
 #include "spn/core/types.hpp"
 
 // debugging
 #include "spn/debugging/assert.hpp"
 
+// dependency_injection
+#include "spn/dependency_injection/container.hpp"
+#include "spn/dependency_injection/phases.hpp"
+#include "spn/dependency_injection/providers.hpp"
+
 // example_lib
 #include "spn/example_lib/example_lib.hpp"
 
-// logging#include "spn/logging/logging.hpp"
+// logging
+#include "spn/logging/logging.hpp"
 #include "spn/logging/memory.hpp"
 
 // threading

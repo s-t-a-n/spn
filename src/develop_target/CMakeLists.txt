@@ -18,4 +18,5 @@ target_link_libraries(app PRIVATE
     spn::threading
     spn::allocation
     spn::containers
+    spn::dependency_injection
 )
