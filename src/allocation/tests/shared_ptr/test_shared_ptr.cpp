@@ -1,5 +1,5 @@
-#include <spn/allocation/shared_ptr.hpp>
 #include <spn/allocation/heap.hpp>
+#include <spn/allocation/shared_ptr.hpp>
 #include <zephyr/logging/log.h>
 #include <zephyr/ztest.h>
 
@@ -17,7 +17,7 @@ struct TestPayload {
 /// Test basic shared pointer construction
 ZTEST(shared_ptr_suite, test_shared_ptr_basic_construction) {
     using heap_t = spn::Heap<256>;
-    auto heap = heap_t{};
+    auto heap    = heap_t{};
 
     spn::SharedPtr<TestPayload, heap_t> ptr{heap};
 
@@ -29,7 +29,7 @@ ZTEST(shared_ptr_suite, test_shared_ptr_basic_construction) {
 /// Test reference counting behavior
 ZTEST(shared_ptr_suite, test_shared_ptr_reference_counting) {
     using heap_t = spn::Heap<256>;
-    auto heap = heap_t{};
+    auto heap    = heap_t{};
 
     spn::SharedPtr<TestPayload, heap_t> ptr{heap};
     zassert_equal(ptr.use_count(), 1, "Initial use count should be 1");
@@ -51,7 +51,7 @@ ZTEST(shared_ptr_suite, test_shared_ptr_reference_counting) {
 /// Test copy semantics and shared data
 ZTEST(shared_ptr_suite, test_shared_ptr_copy_semantics) {
     using heap_t = spn::Heap<256>;
-    auto heap = heap_t{};
+    auto heap    = heap_t{};
 
     spn::SharedPtr<TestPayload, heap_t> ptr1{heap};
     ptr1.get()->a = 42;
@@ -74,7 +74,7 @@ ZTEST(shared_ptr_suite, test_shared_ptr_copy_semantics) {
 /// Test destruction and cleanup
 ZTEST(shared_ptr_suite, test_shared_ptr_destruction) {
     using heap_t = spn::Heap<256>;
-    auto heap = heap_t{};
+    auto heap    = heap_t{};
 
     TestPayload* raw_ptr = nullptr;
 
@@ -99,7 +99,7 @@ ZTEST(shared_ptr_suite, test_shared_ptr_destruction) {
 /// Test static control block usage
 ZTEST(shared_ptr_suite, test_shared_ptr_static_control_block) {
     using heap_t = spn::Heap<256>;
-    auto heap = heap_t{};
+    auto heap    = heap_t{};
 
     static auto cb = spn::SharedPtr<TestPayload, heap_t>::make_control_block();
     zassert_equal(cb._refcount.load(), 1, "Static control block should start with refcount 1");
@@ -116,7 +116,7 @@ ZTEST(shared_ptr_suite, test_shared_ptr_static_control_block) {
 /// Test reuse or realloc functionality
 ZTEST(shared_ptr_suite, test_shared_ptr_reuse_or_realloc) {
     using heap_t = spn::Heap<256>;
-    auto heap = heap_t{};
+    auto heap    = heap_t{};
 
     static auto cb = spn::SharedPtr<TestPayload, heap_t>::make_control_block();
 
@@ -141,7 +141,7 @@ ZTEST(shared_ptr_suite, test_shared_ptr_reuse_or_realloc) {
 /// Test multiple independent control blocks
 ZTEST(shared_ptr_suite, test_shared_ptr_multiple_control_blocks) {
     using heap_t = spn::Heap<512>;
-    auto heap = heap_t{};
+    auto heap    = heap_t{};
 
     static auto cb1 = spn::SharedPtr<TestPayload, heap_t>::make_control_block();
     static auto cb2 = spn::SharedPtr<TestPayload, heap_t>::make_control_block();

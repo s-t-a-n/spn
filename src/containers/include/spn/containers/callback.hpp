@@ -16,9 +16,9 @@ public:
 
     /// Attach a callback function
     void attach(const callback_f& f) {
-        auto*       current = static_cast<callback_f*>(atomic_ptr_get(&_ptr));
-        auto next = (current == &_slots[0]) ? &_slots[1] : &_slots[0];
-        *next               = f;     // prepare new value
+        auto* current = static_cast<callback_f*>(atomic_ptr_get(&_ptr));
+        auto  next    = (current == &_slots[0]) ? &_slots[1] : &_slots[0];
+        *next         = f;           // prepare new value
         atomic_ptr_set(&_ptr, next); // publish atomically
     }
     /// Detach the callback function

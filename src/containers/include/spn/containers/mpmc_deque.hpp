@@ -1,8 +1,8 @@
 #pragma once
 
+#include "spn/debugging/assert.hpp"
 #include "spn/threading/mutex.hpp"
 #include "spn/threading/semaphore.hpp"
-#include "spn/debugging/assert.hpp"
 
 #include <etl/type_traits.h>
 #include <etl/utility.h>

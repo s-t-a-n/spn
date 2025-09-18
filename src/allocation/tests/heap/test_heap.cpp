@@ -9,7 +9,7 @@ ZTEST_SUITE(heap_suite, NULL, NULL, NULL, NULL, NULL);
 /// Test basic heap allocation and deallocation
 ZTEST(heap_suite, test_heap_basic_allocation) {
     constexpr auto heap_size = 512;
-    auto heap = spn::Heap<heap_size>{};
+    auto           heap      = spn::Heap<heap_size>{};
 
     void* ptr = nullptr;
     zassert_equal(heap.alloc(&ptr, 128), 0, "Basic allocation should succeed");
@@ -20,9 +20,9 @@ ZTEST(heap_suite, test_heap_basic_allocation) {
 
 /// Test allocating full heap capacity
 ZTEST(heap_suite, test_heap_full_allocation) {
-    constexpr auto heap_size = 1024;
+    constexpr auto heap_size     = 1024;
     constexpr auto overprovision = 128;
-    auto heap = spn::Heap<heap_size + overprovision>{};
+    auto           heap          = spn::Heap<heap_size + overprovision>{};
 
     // allocate full heap capacity
     void* ptr = nullptr;
@@ -43,7 +43,7 @@ ZTEST(heap_suite, test_heap_full_allocation) {
 /// Test partial heap allocations
 ZTEST(heap_suite, test_heap_partial_allocations) {
     constexpr auto heap_size = 1024;
-    auto heap = spn::Heap<heap_size>{};
+    auto           heap      = spn::Heap<heap_size>{};
 
     // test half allocation
     void* half_ptr = nullptr;
@@ -62,9 +62,9 @@ ZTEST(heap_suite, test_heap_partial_allocations) {
 
 /// Test allocation failure when heap is full
 ZTEST(heap_suite, test_heap_allocation_failure) {
-    constexpr auto heap_size = 256;
+    constexpr auto heap_size  = 256;
     constexpr auto alloc_size = heap_size - 64; // Leave room for heap overhead
-    auto heap = spn::Heap<heap_size>{};
+    auto           heap       = spn::Heap<heap_size>{};
 
     // allocate most of the heap
     void* ptr1 = nullptr;
@@ -78,13 +78,12 @@ ZTEST(heap_suite, test_heap_allocation_failure) {
     heap.release(ptr1);
 }
 
-
 /// Test memory reuse after deallocation
 ZTEST(heap_suite, test_heap_memory_reuse) {
-    constexpr auto heap_size = 512;
+    constexpr auto heap_size   = 512;
     constexpr auto large_alloc = 256;
-    constexpr auto max_alloc = heap_size - 64; // Account for heap overhead
-    auto heap = spn::Heap<heap_size>{};
+    constexpr auto max_alloc   = heap_size - 64; // Account for heap overhead
+    auto           heap        = spn::Heap<heap_size>{};
 
     // allocate and release multiple times
     void* ptr1 = nullptr;

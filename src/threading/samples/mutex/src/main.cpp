@@ -7,26 +7,23 @@
 LOG_MODULE_REGISTER(spn_mutex_sample, LOG_LEVEL_INF);
 
 static spn::Mutex global_mutex;
-static int shared_counter = 0;
+static int        shared_counter = 0;
 
 struct WorkerData {
-    int worker_id;
-    int iterations;
+    int         worker_id;
+    int         iterations;
     const char* name;
 };
 
-static void worker_thread(WorkerData* data, spn::ThreadState state)
-{
+static void worker_thread(WorkerData* data, spn::ThreadState state) {
     if (state == spn::ThreadState::RUNNING) {
         for (int i = 0; i < data->iterations; ++i) {
             global_mutex.with_lock([data, i]() {
                 int current = shared_counter;
-                LOG_INF("Worker %d (iteration %d): counter was %d",
-                        data->worker_id, i + 1, current);
+                LOG_INF("Worker %d (iteration %d): counter was %d", data->worker_id, i + 1, current);
                 k_busy_wait(100);
                 shared_counter = current + 1;
-                LOG_INF("Worker %d (iteration %d): counter now %d",
-                        data->worker_id, i + 1, shared_counter);
+                LOG_INF("Worker %d (iteration %d): counter now %d", data->worker_id, i + 1, shared_counter);
             });
             k_msleep(50);
         }
@@ -34,8 +31,7 @@ static void worker_thread(WorkerData* data, spn::ThreadState state)
     }
 }
 
-static void demonstrate_basic_usage()
-{
+static void demonstrate_basic_usage() {
     LOG_INF("=== Basic Mutex Usage ===");
 
     spn::Mutex local_mutex;
@@ -65,8 +61,7 @@ static void demonstrate_basic_usage()
     LOG_INF("Lambda returned: %d", result);
 }
 
-static void demonstrate_timeout_handling()
-{
+static void demonstrate_timeout_handling() {
     LOG_INF("\n=== Timeout Handling ===");
 
     spn::Mutex timeout_mutex;
@@ -86,8 +81,7 @@ static void demonstrate_timeout_handling()
     LOG_INF("Mutex unlocked, timeout test complete");
 }
 
-static void demonstrate_reentrant_locking()
-{
+static void demonstrate_reentrant_locking() {
     LOG_INF("\n=== Reentrant Locking ===");
 
     spn::Mutex reentrant_mutex;
@@ -109,8 +103,7 @@ static void demonstrate_reentrant_locking()
     LOG_INF("All locks released");
 }
 
-static void demonstrate_multi_threaded_access()
-{
+static void demonstrate_multi_threaded_access() {
     LOG_INF("\n=== Multi-threaded Shared Resource Protection ===");
 
     shared_counter = 0;
@@ -145,8 +138,7 @@ static void demonstrate_multi_threaded_access()
     LOG_INF("Final shared counter value: %d", shared_counter);
 }
 
-int main(void)
-{
+int main(void) {
     LOG_INF("SPN Mutex Sample Application");
 
     demonstrate_basic_usage();

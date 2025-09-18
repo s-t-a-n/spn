@@ -68,9 +68,9 @@ public:
     }
 
     /// Check if queue is full
-    bool   full() const { return _empty_sem.count() == 0; }
+    bool full() const { return _empty_sem.count() == 0; }
     /// Check if queue is empty
-    bool   empty() const { return _filled_sem.count() == 0; }
+    bool empty() const { return _filled_sem.count() == 0; }
     /// Get queue size
     size_t size() const { return static_cast<size_t>(_filled_sem.count()); }
 

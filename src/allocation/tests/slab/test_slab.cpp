@@ -9,8 +9,8 @@ ZTEST_SUITE(slab_suite, NULL, NULL, NULL, NULL, NULL);
 /// Test basic slab block allocation
 ZTEST(slab_suite, test_slab_basic_allocation) {
     constexpr auto num_blocks = 5;
-    using value_t = uint8_t[32];
-    auto slab = spn::Slab<value_t, num_blocks>{};
+    using value_t             = uint8_t[32];
+    auto slab                 = spn::Slab<value_t, num_blocks>{};
 
     value_t* ptr = nullptr;
     zassert_equal(slab.alloc(&ptr), 0, "Basic slab allocation should succeed");
@@ -25,8 +25,8 @@ ZTEST(slab_suite, test_slab_basic_allocation) {
 /// Test allocating all slab blocks
 ZTEST(slab_suite, test_slab_full_allocation) {
     constexpr auto num_blocks = 10;
-    using value_t = uint8_t[32];
-    auto slab = spn::Slab<value_t, num_blocks>{};
+    using value_t             = uint8_t[32];
+    auto slab                 = spn::Slab<value_t, num_blocks>{};
 
     value_t* ref_store[num_blocks]{};
 
@@ -53,8 +53,8 @@ ZTEST(slab_suite, test_slab_full_allocation) {
 /// Test allocation failure when slab is full
 ZTEST(slab_suite, test_slab_allocation_failure) {
     constexpr auto num_blocks = 3;
-    using value_t = uint8_t[16];
-    auto slab = spn::Slab<value_t, num_blocks>{};
+    using value_t             = uint8_t[16];
+    auto slab                 = spn::Slab<value_t, num_blocks>{};
 
     value_t* ptrs[num_blocks];
 
@@ -77,8 +77,8 @@ ZTEST(slab_suite, test_slab_allocation_failure) {
 /// Test block release and reallocation
 ZTEST(slab_suite, test_slab_release_and_realloc) {
     constexpr auto num_blocks = 5;
-    using value_t = uint8_t[64];
-    auto slab = spn::Slab<value_t, num_blocks>{};
+    using value_t             = uint8_t[64];
+    auto slab                 = spn::Slab<value_t, num_blocks>{};
 
     // allocate a block
     value_t* ptr1 = nullptr;
@@ -98,8 +98,8 @@ ZTEST(slab_suite, test_slab_release_and_realloc) {
 /// Test multiple allocation and release cycles
 ZTEST(slab_suite, test_slab_multiple_alloc_release_cycles) {
     constexpr auto num_blocks = 4;
-    using value_t = uint8_t[128];
-    auto slab = spn::Slab<value_t, num_blocks>{};
+    using value_t             = uint8_t[128];
+    auto slab                 = spn::Slab<value_t, num_blocks>{};
 
     // perform multiple allocation/release cycles
     for (int cycle = 0; cycle < 3; cycle++) {
@@ -132,8 +132,8 @@ ZTEST(slab_suite, test_slab_multiple_alloc_release_cycles) {
 /// Test interleaved allocation and release operations
 ZTEST(slab_suite, test_slab_interleaved_operations) {
     constexpr auto num_blocks = 6;
-    using value_t = uint8_t[48];
-    auto slab = spn::Slab<value_t, num_blocks>{};
+    using value_t             = uint8_t[48];
+    auto slab                 = spn::Slab<value_t, num_blocks>{};
 
     value_t* ptr1 = nullptr;
     value_t* ptr2 = nullptr;

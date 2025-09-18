@@ -1,9 +1,9 @@
 #pragma once
 
+#include "spn/debugging/assert.hpp"
 #include "spn/threading/condition.hpp"
 #include "spn/threading/mutex.hpp"
 #include "spn/threading/semaphore.hpp"
-#include "spn/debugging/assert.hpp"
 
 #include <etl/queue.h>
 #include <zephyr/kernel.h>

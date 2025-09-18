@@ -13,12 +13,12 @@ using unique_ptr = etl::unique_ptr<T, HeapDeleter<T>>;
 /// Heap memory allocator interface
 class IHeap {
 public:
-    IHeap() = default;
-    virtual ~IHeap() = default;
-    IHeap(const IHeap&) = delete;
+    IHeap()                        = default;
+    virtual ~IHeap()               = default;
+    IHeap(const IHeap&)            = delete;
     IHeap& operator=(const IHeap&) = delete;
-    IHeap(IHeap&&) = delete;
-    IHeap& operator=(IHeap&&) = delete;
+    IHeap(IHeap&&)                 = delete;
+    IHeap& operator=(IHeap&&)      = delete;
 
     /// query capacity in bytes
     virtual size_t capacity() const = 0;
@@ -37,7 +37,6 @@ public:
 
     /// release a region
     virtual void release(void* ptr) = 0;
-
 
     /// allocate for an object and construct in place
     template<typename T, typename... Args>
@@ -68,7 +67,6 @@ public:
         if (emplace<T>(&p, static_cast<Args&&>(args)...) != 0) return unique_ptr<T>(nullptr, HeapDeleter<T>{this});
         return unique_ptr<T>(p, HeapDeleter<T>{this});
     }
-
 };
 
 /// Allocator for regions of dynamic sizes
