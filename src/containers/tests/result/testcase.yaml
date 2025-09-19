@@ -1,0 +1,6 @@
+common:
+  tags: spn containers result
+  integration_platforms:
+    - native_sim
+tests:
+  spn.containers.result.unit: { }

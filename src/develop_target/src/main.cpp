@@ -13,6 +13,7 @@
 #include "spn/containers/mpmc_queue.hpp"
 #include "spn/containers/mpsc_queue.hpp"
 #include "spn/containers/poll.hpp"
+#include "spn/containers/result.hpp"
 
 // core
 #include "spn/core/enum_flags.hpp"
