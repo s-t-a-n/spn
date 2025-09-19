@@ -13,6 +13,7 @@ namespace spn {
 class Mutex {
 public:
     Mutex() { k_mutex_init(&_mutex); }
+    ~Mutex() = default;
 
     Mutex(const Mutex&)            = delete;
     Mutex& operator=(const Mutex&) = delete;

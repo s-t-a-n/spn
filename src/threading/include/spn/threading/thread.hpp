@@ -48,7 +48,7 @@ public:
     using Delegate = etl::delegate<void(ArgT* arg, ThreadState state)>;
 
     Thread(Delegate delegate, ArgT* arg, int priority = 10, const char* name = nullptr)
-        : _thread_priority(priority), _delegate(delegate), _arg(arg) {
+        : _thread{}, _thread_stack{}, _thread_priority(priority), _delegate(delegate), _arg(arg), _ev{} {
         k_event_init(&_ev);
         k_event_set(&_ev, U32(ThreadState::IDLE));
 

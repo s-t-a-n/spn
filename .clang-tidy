@@ -27,7 +27,7 @@ cert-flp30-c,
 cert-msc50-cpp,
 cert-msc51-cpp,
 cert-str34-c,
-google-default-arguments,
+-google-default-arguments
 google-explicit-constructor,
 google-runtime-operator,
 hicpp-exception-baseclass,
@@ -66,4 +66,6 @@ readability-static-definition-in-anonymous-namespace,
 readability-string-compare,
 readability-uniqueptr-delete-release,
 readability-use-anyofallof,
--readability-magic-numbers'
+-readability-magic-numbers,
+-clang-diagnostic-ignored-optimization-argument,
+-clang-diagnostic-unknown-argument'

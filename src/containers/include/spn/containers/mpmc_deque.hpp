@@ -145,7 +145,7 @@ private:
     static constexpr size_t advance(size_t i) { return (i + 1) % N; }
     static constexpr size_t retreat(size_t i) { return (i + N - 1) % N; }
 
-    T* ptr(size_t i) { return std::launder(reinterpret_cast<T*>(&_storage[i])); }
+    T* ptr(size_t i) { return reinterpret_cast<T*>(&_storage[i]); }
 
     template<typename U>
     void construct_at(size_t i, U&& v) {

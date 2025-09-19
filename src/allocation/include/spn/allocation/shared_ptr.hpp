@@ -154,7 +154,7 @@ private:
 
     template<typename... Args>
     static ControlBlock* allocate_and_construct(pool_t& pool, Args&&... args) {
-        void* raw;
+        void* raw{};
         if (pool.alloc_aligned(&raw, alignof(ControlBlock), sizeof(ControlBlock)) != 0) return nullptr;
         return new (raw) ControlBlock(&pool, std::forward<Args>(args)...);
     }

@@ -18,8 +18,11 @@ public:
 
 public:
     Event() { k_event_init(&_ev); }
+    ~Event()                       = default;
     Event(const Event&)            = delete;
     Event& operator=(const Event&) = delete;
+    Event(Event&&)                 = delete;
+    Event& operator=(Event&&)      = delete;
 
     /// Convert flag to mask
     static constexpr mask_t mask(Enum f) { return static_cast<mask_t>(f); }

@@ -56,8 +56,8 @@ public:
     LockGuard lockguard() { return LockGuard(&_mutex); }
 
 private:
-    k_mutex   _mutex;
-    k_condvar _cond;
+    k_mutex   _mutex{};
+    k_condvar _cond{};
 };
 
 } // namespace spn
