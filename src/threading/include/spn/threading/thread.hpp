@@ -11,8 +11,6 @@
 
 namespace spn {
 
-using namespace spn::core;
-
 enum class ThreadState : uint32_t {
     IDLE        = 1 << 0,
     STARTING    = 1 << 1,
