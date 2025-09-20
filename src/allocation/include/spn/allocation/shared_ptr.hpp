@@ -42,8 +42,7 @@ public:
     explicit SharedPtr(pool_t& pool) : _control(allocate_and_construct(pool)) {}
 
     template<typename... Args>
-        requires std::constructible_from<T, Args...>
-    SharedPtr(pool_t& pool, std::in_place_t, Args&&... args)
+    requires std::constructible_from<T, Args...> SharedPtr(pool_t& pool, std::in_place_t, Args&&... args)
         : _control(allocate_and_construct(pool, std::forward<Args>(args)...)) {}
 
     SharedPtr(const SharedPtr& other) noexcept : _control(other._control) { add_ref(); }
@@ -51,8 +50,8 @@ public:
     SharedPtr(SharedPtr&& other) noexcept : _control(other._control) { other._control = nullptr; }
 
     template<typename... Args>
-        requires std::constructible_from<T, Args...>
-    SharedPtr(ControlBlock* other_cb, Args&&... args) noexcept : _control(other_cb) {
+    requires std::constructible_from<T, Args...> SharedPtr(ControlBlock* other_cb, Args&&... args)
+    noexcept : _control(other_cb) {
         _control->_data = {std::forward<Args>(args)...};
         add_ref();
     }
@@ -104,7 +103,7 @@ public:
 
     /// Reset with new object
     template<typename... Args>
-        requires std::constructible_from<T, Args...>
+    requires std::constructible_from<T, Args...>
     void reset(pool_t& pool, Args&&... args) {
         release();
         _control = allocate_and_construct(pool, std::forward<Args>(args)...);

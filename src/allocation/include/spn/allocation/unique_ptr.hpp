@@ -11,7 +11,7 @@ template<typename T>
 struct HeapDeleter {
     IHeap* _heap{};
     void   operator()(T* p) const noexcept {
-        if (!p || _heap == nullptr) return;
+          if (!p || _heap == nullptr) return;
         _heap->destroy(p);
     }
 };
@@ -24,7 +24,7 @@ template<typename T>
 struct HeapDeleter<T[]> {
     IHeap* _heap{};
     void   operator()(T* p) const noexcept {
-        if (!p || _heap == nullptr) return;
+          if (!p || _heap == nullptr) return;
         _heap->release(p); // raw memory release for arrays
     }
 };

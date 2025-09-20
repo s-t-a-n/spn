@@ -17,9 +17,7 @@ ZTEST(mutex_suite, test_mutex_basic_operations) {
 ZTEST(mutex_suite, test_mutex_lockguard_raii) {
     spn::Mutex mutex;
 
-    {
-        auto guard = mutex.lockguard();
-    }
+    { auto guard = mutex.lockguard(); }
 
     zassert_equal(mutex.lock(), 0, "Mutex should be available after lockguard destruction");
     zassert_equal(mutex.unlock(), 0, "Mutex unlock should succeed");

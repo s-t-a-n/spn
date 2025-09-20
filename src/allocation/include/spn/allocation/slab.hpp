@@ -37,9 +37,7 @@ public:
 
     /// Allocate and construct object
     template<typename... Args>
-    int emplace(T** block, Args&&... args)
-        requires(!std::is_array_v<T>)
-    {
+    int emplace(T** block, Args&&... args) requires(!std::is_array_v<T>) {
         if (block == nullptr) return -EINVAL;
 
         void* tmp = nullptr;

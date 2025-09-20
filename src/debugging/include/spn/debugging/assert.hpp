@@ -53,7 +53,7 @@ expect_handler_f spn_expect_handler();
                 }                                                                                                      \
             } while (0)
 #    else
-#        define spn_assert(condition) __ASSERT(condition, "spn_assert failed: %s", #condition)
+#        define spn_assert(condition) __ASSERT(condition, "spn_assert failed: %s", #        condition)
 
 #        define spn_expect(condition)                                                                                  \
             do {                                                                                                       \

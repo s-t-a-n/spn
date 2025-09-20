@@ -14,11 +14,16 @@ concept FunctionPtr = etl::is_pointer_v<T> && spn::is_function_v<etl::remove_poi
 
 /// provider concept for dependency injection
 template<typename P>
-concept Provider = requires { typename P::value_type; } && etl::is_lvalue_reference_v<typename P::value_type>;
+concept Provider = requires {
+    typename P::value_type;
+}
+&&etl::is_lvalue_reference_v<typename P::value_type>;
 
 /// pipeable operation concept
 template<typename C, typename F>
-concept Pipeable = requires(C c, F f) { f(etl::move(c)); };
+concept Pipeable = requires(C c, F f) {
+    f(etl::move(c));
+};
 
 /// wrap free function returning l-value into provider
 template<auto Fn>
@@ -34,10 +39,8 @@ inline constexpr ref_t<Fn> ref{};
 
 /// pipe operator for chaining operations
 template<typename C, typename F>
-    requires Pipeable<C, F>
-constexpr auto operator|(C&& c, F&& f) {
-    return etl::forward<F>(f)(etl::forward<C>(c));
-}
+requires Pipeable<C, F>
+constexpr auto operator|(C&& c, F&& f) { return etl::forward<F>(f)(etl::forward<C>(c)); }
 
 /// default phase tag for unspecified execution phase
 struct default_phase {};
@@ -63,8 +66,7 @@ constexpr auto call(Fn fn) {
 
 /// create call adapter from stateless functor
 template<typename F>
-    requires spn::is_empty_v<F> && etl::is_trivially_copyable_v<F> && (!FunctionPtr<F>)
-constexpr auto call(F f) {
+requires spn::is_empty_v<F> && etl::is_trivially_copyable_v<F> &&(!FunctionPtr<F>)constexpr auto call(F f) {
     return call_in(f);
 }
 

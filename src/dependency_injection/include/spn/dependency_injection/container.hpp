@@ -57,7 +57,8 @@ static constexpr decltype(auto) tuple_find(Tuple& tup) {
 template<typename Arg, typename Tuple>
 inline constexpr bool has_provider_v = []<size_t... I>(etl::index_sequence<I...>) {
     return (... || etl::is_same_v<Arg, typename etl::tuple_element_t<I, Tuple>::value_type>);
-}(etl::make_index_sequence<etl::tuple_size_v<Tuple>>{});
+}
+(etl::make_index_sequence<etl::tuple_size_v<Tuple>>{});
 
 } // namespace detail
 
@@ -90,7 +91,8 @@ public:
     [[nodiscard]] constexpr auto inject(P p) const {
         constexpr bool duplicate = [&]<size_t... I>(etl::index_sequence<I...>) {
             return (... || etl::is_same_v<typename etl::tuple_element_t<I, ProvTuple>::value_type, typename P::value_type>);
-        }(etl::make_index_sequence<etl::tuple_size_v<ProvTuple>>{});
+        }
+        (etl::make_index_sequence<etl::tuple_size_v<ProvTuple>>{});
         static_assert(!duplicate, "duplicate provider for this type");
 
         auto prov_next = etl::tuple_cat(_prov, etl::tuple{p});
@@ -102,7 +104,8 @@ public:
     [[nodiscard]] constexpr auto add_call(F f) const {
         constexpr bool ok = [&]<size_t... I>(etl::index_sequence<I...>) {
             return (... && detail::has_provider_v<arg_t<I, F>, ProvTuple>);
-        }(etl::make_index_sequence<etl::tuple_size_v<typename detail::fn_traits<F>::args>>{});
+        }
+        (etl::make_index_sequence<etl::tuple_size_v<typename detail::fn_traits<F>::args>>{});
         static_assert(ok, "call refers to a type without provider");
 
         auto next = append<Tag>(_calls, f);
