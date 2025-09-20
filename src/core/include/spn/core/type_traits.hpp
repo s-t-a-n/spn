@@ -1,6 +1,7 @@
 #pragma once
 
 #include <etl/type_traits.h>
+#include <etl/utility.h>
 
 namespace spn {
 
@@ -19,5 +20,9 @@ struct is_function : etl::bool_constant<!etl::is_const_v<const T> && !etl::is_re
 /// convenience variable template for is_function
 template<typename T>
 inline constexpr bool is_function_v = is_function<T>::value;
+
+/// deduce return type of callable when invoked with specific arguments
+template<typename F, typename... Args>
+using invoke_result_t = decltype(etl::declval<F>()(etl::declval<Args>()...));
 
 } // namespace spn
