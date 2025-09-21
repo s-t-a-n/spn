@@ -1,0 +1,5 @@
+tests:
+  system.integration:
+    platform_allow: native_sim qemu_x86 qemu_cortex_m3
+    tags: system integration
+    timeout: 60

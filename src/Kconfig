@@ -1,6 +1,7 @@
 rsource "core/Kconfig"
 rsource "example_lib/Kconfig"
 rsource "logging/Kconfig"
+rsource "system/Kconfig"
 rsource "debugging/Kconfig"
 rsource "threading/Kconfig"
 rsource "allocation/Kconfig"

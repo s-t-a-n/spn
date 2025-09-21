@@ -36,6 +36,10 @@
 #include "spn/logging/logging.hpp"
 #include "spn/logging/memory.hpp"
 
+// system
+#include "spn/system/exception.hpp"
+#include "spn/system/shutdown.hpp"
+
 // threading
 #include "spn/threading/condition.hpp"
 #include "spn/threading/event.hpp"

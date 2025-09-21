@@ -1,32 +1,36 @@
-if(CONFIG_SPN_CORE)
+if (CONFIG_SPN_CORE)
     add_subdirectory(core)
-endif()
+endif ()
 
-if(CONFIG_SPN_EXAMPLE_LIB)
+if (CONFIG_SPN_EXAMPLE_LIB)
     add_subdirectory(example_lib)
-endif()
+endif ()
 
-if(CONFIG_SPN_LOGGING)
+if (CONFIG_SPN_LOGGING)
     add_subdirectory(logging)
-endif()
+endif ()
 
-if(CONFIG_SPN_DEBUGGING)
+if (CONFIG_SPN_DEBUGGING)
     add_subdirectory(debugging)
-endif()
+endif ()
 
-if(CONFIG_SPN_THREADING)
+if (CONFIG_SPN_SYSTEM)
+    add_subdirectory(system)
+endif ()
+
+if (CONFIG_SPN_THREADING)
     add_subdirectory(threading)
-endif()
+endif ()
 
-if(CONFIG_SPN_ALLOCATION)
+if (CONFIG_SPN_ALLOCATION)
     add_subdirectory(allocation)
-endif()
+endif ()
 
-if(CONFIG_SPN_CONTAINERS)
+if (CONFIG_SPN_CONTAINERS)
     add_subdirectory(containers)
-endif()
+endif ()
 
-if(CONFIG_SPN_DEPENDENCY_INJECTION)
+if (CONFIG_SPN_DEPENDENCY_INJECTION)
     add_subdirectory(dependency_injection)
-endif()
+endif ()
 

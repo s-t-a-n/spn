@@ -1,0 +1,17 @@
+config SPN_SYSTEM
+    bool "Enable SPN system utilities"
+    select SPN_LOGGING
+    select SPN_DEBUGGING
+    select ETL if CPP_EXCEPTIONS
+    default y
+    help
+      Enable SPN system utilities including exception handling,
+      shutdown management, and fatal error hooks for Zephyr integration.
+
+config SPN_AUTO_EXCEPTION_ASSERTS
+    bool "Automatically register exception handler for asserts"
+    depends on SPN_SYSTEM && SPN_DEBUGGING && CONFIG_SPN_ASSERT_HANDLER
+    default n
+    help
+      Automatically register the system exception handler for assertions at startup.
+      When enabled, failed assertions will throw exceptions instead of halting.

@@ -11,12 +11,13 @@ project(spn_develop_target)
 
 target_sources(app PRIVATE src/main.cpp)
 target_link_libraries(app PRIVATE
-    spn::core
-    spn::example_lib
-    spn::logging
-    spn::debugging
-    spn::threading
-    spn::allocation
-    spn::containers
-    spn::dependency_injection
+        spn::core
+        spn::example_lib
+        spn::logging
+        spn::system
+        spn::debugging
+        spn::threading
+        spn::allocation
+        spn::containers
+        spn::dependency_injection
 )

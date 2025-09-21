@@ -1,0 +1,6 @@
+common:
+  tags: spn system exception
+  integration_platforms:
+    - native_sim
+tests:
+  spn.system.exception.unit: { }

@@ -1,0 +1,5 @@
+tests:
+  system.fatal_hook:
+    platform_allow: native_sim qemu_x86 qemu_cortex_m3
+    tags: system fatal
+    timeout: 60

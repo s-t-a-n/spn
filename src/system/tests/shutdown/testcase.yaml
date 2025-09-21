@@ -1,0 +1,6 @@
+common:
+  tags: spn system shutdown
+  integration_platforms:
+    - native_sim
+tests:
+  spn.system.shutdown.unit: { }
