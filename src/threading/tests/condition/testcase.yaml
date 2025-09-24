@@ -1,0 +1,6 @@
+common:
+  tags: spn threading_primitives condition
+  integration_platforms:
+    - native_sim
+tests:
+  spn.threading_primitives.condition.unit: { }

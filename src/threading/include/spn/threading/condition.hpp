@@ -15,13 +15,13 @@ public:
     }
 
     /// Lock the mutex
-    auto lock(k_timeout_t timeout = K_FOREVER) { return k_mutex_lock(&_mutex, timeout); }
+    int lock(k_timeout_t timeout = K_FOREVER) { return k_mutex_lock(&_mutex, timeout); }
 
     /// Unlock the mutex
-    auto unlock() { return k_mutex_unlock(&_mutex); }
+    int unlock() { return k_mutex_unlock(&_mutex); }
 
     /// Wait for a condition
-    auto wait(k_timeout_t timeout = K_FOREVER) { return k_condvar_wait(&_cond, &_mutex, timeout); }
+    int wait(k_timeout_t timeout = K_FOREVER) { return k_condvar_wait(&_cond, &_mutex, timeout); }
 
     /// Wait for a predicate to become true within a timeout
     template<typename Predicate>
@@ -40,8 +40,8 @@ public:
             uint32_t    remaining_ms      = timeout_ms - elapsed_ms;
             k_timeout_t remaining_timeout = K_MSEC(remaining_ms);
 
-            bool signaled = wait(remaining_timeout);
-            if (!signaled) return false; // timeout expired during wait
+            int ret = wait(remaining_timeout);
+            if (ret == -EAGAIN) return false; // timeout expired during wait
         }
         return true;
     }
@@ -49,8 +49,8 @@ public:
     /// Signal single waiting thread
     void signal() { k_condvar_signal(&_cond); }
 
-    /// Signal all waiting threads
-    auto broadcast() { return k_condvar_broadcast(&_cond); }
+    /// Signal all waiting threads. Returns number of waiters or error value.
+    int broadcast() { return k_condvar_broadcast(&_cond); }
 
     /// Returns RAII-lockguard of underlying mutex
     LockGuard lockguard() { return LockGuard(&_mutex); }

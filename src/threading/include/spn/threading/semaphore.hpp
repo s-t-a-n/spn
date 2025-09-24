@@ -32,4 +32,6 @@ private:
     k_sem _sem{};
 };
 
+// note: no tests for this class as we are not adding any behaviour over C-components provided upstream
+
 } // namespace spn

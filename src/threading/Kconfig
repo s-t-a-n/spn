@@ -4,6 +4,7 @@ config SPN_THREADING
     select SPN_DEBUGGING
     select SPN_LOGGING
     select ETL
+    select EVENTS
     default n
     help
       Enable the SPN threading primitives library

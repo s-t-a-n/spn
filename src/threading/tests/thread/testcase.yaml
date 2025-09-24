@@ -1,0 +1,6 @@
+common:
+  tags: spn threading thread
+  integration_platforms:
+    - native_sim
+tests:
+  spn.threading.thread.unit: {}
