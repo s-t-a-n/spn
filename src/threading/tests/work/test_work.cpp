@@ -49,7 +49,8 @@ ZTEST_SUITE(work_suite, nullptr, nullptr, nullptr, nullptr, nullptr);
 ZTEST(work_suite, work_schedule_runs_handler_once) {
     VoidWorkContext owner;
 
-    owner.work.schedule(K_MSEC(10));
+    int schedule_rc = owner.work.schedule(K_MSEC(10));
+    zassert_true(schedule_rc >= 0, "schedule should succeed");
     zassert_true(owner.work.is_scheduled(), "work should be pending before execution");
 
     zassert_ok(k_sem_take(&owner.handled, TestTimeout), "handler should run");
@@ -62,7 +63,7 @@ ZTEST(work_suite, work_schedule_runs_handler_once) {
 ZTEST(work_suite, work_cancel_prevents_execution) {
     VoidWorkContext owner;
 
-    owner.work.schedule(K_MSEC(100));
+    zassert_true(owner.work.schedule(K_MSEC(100)) >= 0, "schedule should succeed");
     zassert_true(owner.work.is_scheduled(), "work should report pending before cancel");
 
     owner.work.cancel();
@@ -77,12 +78,12 @@ ZTEST(work_suite, work_cancel_inside_handler_is_safe) {
     VoidWorkContext owner;
     owner.cancel_inside_handler = true;
 
-    owner.work.schedule(K_NO_WAIT);
+    zassert_true(owner.work.schedule(K_NO_WAIT) >= 0, "schedule should succeed");
     zassert_ok(k_sem_take(&owner.handled, TestTimeout), "handler should still run once");
     zassert_equal(owner.call_count, 1, "handler should run exactly once");
 
     owner.cancel_inside_handler = false;
-    owner.work.schedule(K_NO_WAIT);
+    zassert_true(owner.work.schedule(K_NO_WAIT) >= 0, "schedule should succeed after in-handler cancel");
     zassert_ok(k_sem_take(&owner.handled, TestTimeout), "work should remain usable after in-handler cancel");
     zassert_equal(owner.call_count, 2, "handler should run again after reuse");
 }
@@ -91,7 +92,7 @@ ZTEST(work_suite, work_with_argument_passes_pointer) {
     ArgWorkContext owner;
     int            value = 42;
 
-    owner.work.schedule(K_NO_WAIT, &value);
+    zassert_true(owner.work.schedule(K_NO_WAIT, &value) >= 0, "schedule should succeed with argument");
 
     zassert_ok(k_sem_take(&owner.handled, TestTimeout), "handler should run with argument");
     zassert_equal(owner.last_arg, &value, "handler should receive scheduled argument");
@@ -103,11 +104,25 @@ ZTEST(work_suite, work_reschedule_uses_latest_argument) {
     int            first  = 1;
     int            second = 2;
 
-    owner.work.schedule(K_MSEC(100), &first);
+    zassert_true(owner.work.schedule(K_MSEC(100), &first) >= 0, "initial schedule should succeed");
     k_sleep(K_MSEC(10));
-    owner.work.schedule(K_NO_WAIT, &second);
+    zassert_true(owner.work.schedule(K_NO_WAIT, &second) >= 0, "reschedule should succeed");
 
     zassert_ok(k_sem_take(&owner.handled, TestTimeout), "handler should run for rescheduled work");
     zassert_equal(owner.last_arg, &second, "handler should see most recent argument");
     zassert_equal(owner.call_count, 1, "reschedule should result in a single handler call");
+}
+
+ZTEST(work_suite, work_flush_waits_and_reports) {
+    VoidWorkContext owner;
+
+    zassert_true(owner.work.schedule(K_MSEC(50)) >= 0, "schedule should succeed");
+
+    int flush_rc = owner.work.flush();
+    zassert_equal(flush_rc, 1, "flush should wait for pending work");
+    zassert_equal(owner.call_count, 1, "handler should run exactly once before flush returns");
+    zassert_false(owner.work.is_scheduled(), "flush should leave work idle");
+
+    int second_rc = owner.work.flush();
+    zassert_equal(second_rc, 0, "flush should report no wait when nothing pending");
 }

@@ -1,7 +1,10 @@
 #pragma once
 
+#include "spn/threading/semaphore.hpp"
+
 #include <etl/type_traits.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/atomic.h>
 
 namespace spn {
 
@@ -27,9 +30,9 @@ public:
     ~Work() { cancel(); }
 
     /// Schedule work to run after delay
-    void schedule(k_timeout_t delta_time, ArgT* arg = nullptr) {
-        if constexpr (has_arg) _cw.arg = arg;
-        k_work_reschedule(&_cw.work, delta_time);
+    [[nodiscard]] int schedule(k_timeout_t delta_time, ArgT* arg = nullptr) {
+        if constexpr (has_arg) atomic_ptr_set(&_cw.arg, arg);
+        return k_work_reschedule(&_cw.work, delta_time);
     }
 
     /// Check if work is scheduled
@@ -40,7 +43,7 @@ public:
     /// Cancel pending work
     /// note: async=false blocks until handler exits, async=true returns immediately
     void cancel(bool async = false) {
-        if (_in_handler) {
+        if (k_is_in_isr()) {
             k_work_cancel_delayable(&_cw.work);
             return;
         }
@@ -48,46 +51,74 @@ public:
             k_work_cancel_delayable(&_cw.work);
             return;
         }
-        k_work_sync sync{};
-        k_work_cancel_delayable_sync(&_cw.work, &sync);
+        if (running_in_current_thread()) {
+            k_work_cancel_delayable(&_cw.work);
+            return;
+        }
+
+        _sync_sem.take(K_FOREVER);
+        k_work_cancel_delayable_sync(&_cw.work, &_sync);
+        _sync_sem.give();
+    }
+
+    /// Flush work; returns 1 if the call waited, 0 if it did not, or a negative errno
+    [[nodiscard]] int flush(k_timeout_t timeout = K_FOREVER) {
+        if (k_is_in_isr()) {
+            return 0;
+        }
+        if (running_in_current_thread()) {
+            return 0;
+        }
+
+        int rc = _sync_sem.take(timeout);
+        if (rc != 0) {
+            return rc;
+        }
+        bool waited = k_work_flush_delayable(&_cw.work, &_sync);
+        _sync_sem.give();
+
+        return waited ? 1 : 0;
     }
 
 protected:
     void assign_arg(ArgT* arg) {
         if constexpr (has_arg) {
-            // todo: make arg atomatic or lock the access by mutex
-            _cw.arg = arg;
+            atomic_ptr_set(&_cw.arg, arg);
         }
     }
     void assign_owner(OwnerT* owner) { _cw.owner = owner; }
     void assign_handler(handler_f handler) { _cw.handler = handler; }
 
     void invoke() {
-        if constexpr (has_arg) (_cw.owner->*_cw.handler)(_cw.arg);
-        else
+        if constexpr (has_arg) {
+            auto* arg = static_cast<ArgT*>(atomic_ptr_get(&_cw.arg));
+            (_cw.owner->*_cw.handler)(arg);
+        } else
             (_cw.owner->*_cw.handler)();
     }
 
 private:
     static void work_handler(k_work* work) {
-        auto c               = CONTAINER_OF(work, ContainedWork, work);
-        c->self->_in_handler = true;
-        if constexpr (has_arg) (c->owner->*c->handler)(c->arg);
-        else
-            (c->owner->*c->handler)();
-        c->self->_in_handler = false;
+        auto c = CONTAINER_OF(work, ContainedWork, work);
+        atomic_ptr_set(&c->runner, k_current_get());
+        c->self->invoke();
+        atomic_ptr_clear(&c->runner);
     }
 
     struct ContainedWork {
-        ArgT*               arg{}; // ignored when ArgT == void
+        atomic_ptr_t        arg    = ATOMIC_PTR_INIT(nullptr); // ignored when ArgT == void
+        atomic_ptr_t        runner = ATOMIC_PTR_INIT(nullptr);
         OwnerT*             owner{};
         handler_f           handler{};
         k_work_delayable    work{};
         Work<ArgT, OwnerT>* self{nullptr};
     };
 
-    ContainedWork _cw{};
-    bool          _in_handler{false};
+    ContainedWork   _cw{};
+    k_work_sync     _sync{};
+    Semaphore<1, 1> _sync_sem;
+
+    bool running_in_current_thread() const { return atomic_ptr_get(&_cw.runner) == k_current_get(); }
 };
 
 } // namespace spn
