@@ -19,11 +19,11 @@ public:
     /// Release semaphore
     void give() { k_sem_give(&_sem); }
 
-    /// Acquire semaphore
-    bool take(const k_timeout_t timeout = K_FOREVER) { return k_sem_take(&_sem, timeout) == 0; }
+    /// Acquire semaphore. Returns non-zero on timeout
+    int take(const k_timeout_t timeout = K_FOREVER) { return k_sem_take(&_sem, timeout); }
 
     /// Get current semaphore count
-    auto count() { return k_sem_count_get(&_sem); }
+    unsigned int count() { return k_sem_count_get(&_sem); }
 
     /// Get maximum semaphore limit
     static constexpr auto limit() { return Limit; }
