@@ -1,9 +1,12 @@
 #include "spn/threading/condition.hpp"
 
+#include <errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/ztest.h>
 
 namespace {
+
+// for these tests we assume that Zephyr k_condvar/k_mutex behaviour has been properly tested upstream.
 
 K_THREAD_STACK_DEFINE(test_stack1, 1024);
 K_THREAD_STACK_DEFINE(test_stack2, 1024);
@@ -11,27 +14,56 @@ k_thread test_thread1;
 k_thread test_thread2;
 
 struct TestHarness {
-    spn::Condition* condition    = nullptr;
-    bool*           predicate    = nullptr;
-    k_sem*          waiting_sem  = nullptr;
-    k_sem*          released_sem = nullptr;
+    spn::Condition* condition     = nullptr;
+    bool*           predicate     = nullptr;
+    bool            set_predicate = false;
+    k_sem*          started_sem   = nullptr;
+    k_sem*          completed_sem = nullptr;
+    k_sem*          wait_sem      = nullptr;
+    k_sem*          notify_sem    = nullptr;
+    int*            result_slot   = nullptr;
 };
 
-void simple_signaling_entry(void* ctx_ptr, void*, void*) {
-    auto* harness       = static_cast<TestHarness*>(ctx_ptr);
-    auto  guard         = harness->condition->lockguard();
-    *harness->predicate = true;
-    harness->condition->signal();
-}
-
-void broadcast_waiter_entry(void* ctx_ptr, void*, void*) {
+void signal_worker_entry(void* ctx_ptr, void*, void*) {
     auto* ctx = static_cast<TestHarness*>(ctx_ptr);
+    if (ctx->started_sem != nullptr) {
+        k_sem_give(ctx->started_sem);
+    }
+    if (ctx->wait_sem != nullptr) {
+        (void)k_sem_take(ctx->wait_sem, K_FOREVER);
+    }
     {
         auto guard = ctx->condition->lockguard();
-        k_sem_give(ctx->waiting_sem);
-        (void)ctx->condition->wait_for(K_MSEC(200), [ctx] { return *ctx->predicate; });
+        if (ctx->set_predicate && ctx->predicate != nullptr) {
+            *ctx->predicate = true;
+        }
+        ctx->condition->signal();
     }
-    k_sem_give(ctx->released_sem);
+    if (ctx->notify_sem != nullptr) {
+        k_sem_give(ctx->notify_sem);
+    }
+    if (ctx->completed_sem != nullptr) {
+        k_sem_give(ctx->completed_sem);
+    }
+}
+
+void lock_attempt_entry(void* ctx_ptr, void*, void*) {
+    auto* ctx = static_cast<TestHarness*>(ctx_ptr);
+    if (ctx->started_sem != nullptr) {
+        k_sem_give(ctx->started_sem);
+    }
+
+    int rc = ctx->condition->lock(K_NO_WAIT);
+    if (ctx->result_slot != nullptr) {
+        *ctx->result_slot = rc;
+    }
+    if (rc == 0) {
+        (void)ctx->condition->unlock();
+    }
+
+    if (ctx->completed_sem != nullptr) {
+        k_sem_give(ctx->completed_sem);
+    }
 }
 
 } // namespace
@@ -70,85 +102,121 @@ ZTEST(condition_tests, test_timeout_semantics) {
     zassert_false(result, "wait_for should return false on timeout");
 }
 
-ZTEST(condition_tests, test_simple_signaling) {
+ZTEST(condition_tests, test_lockguard_enforces_mutex_ownership) {
     spn::Condition condition;
-    bool           worker_completed = false;
-    TestHarness    harness{&condition, &worker_completed, nullptr, nullptr};
 
-    k_tid_t tid = k_thread_create(
-        &test_thread1,
-        test_stack1,
-        K_THREAD_STACK_SIZEOF(test_stack1),
-        simple_signaling_entry,
-        &harness,
-        nullptr,
-        nullptr,
-        K_PRIO_PREEMPT(1),
-        0,
-        K_NO_WAIT
-    );
-    zassert_not_null(tid, "worker thread should start");
+    k_sem start_sem;
+    k_sem done_sem;
+    zassert_ok(k_sem_init(&start_sem, 0, 1), "start semaphore should init");
+    zassert_ok(k_sem_init(&done_sem, 0, 1), "done semaphore should init");
 
-    {
-        auto guard  = condition.lockguard();
-        bool result = condition.wait_for(K_MSEC(100), [&worker_completed] { return worker_completed; });
-        zassert_true(result, "Should return true when signaled");
-    }
-
-    zassert_true(worker_completed, "Flag should be set by worker thread");
-}
-
-ZTEST(condition_tests, test_broadcast_wakes_all_waiters) {
-    spn::Condition condition{};
-    bool           predicate = false;
-
-    k_sem waiting_sem;
-    k_sem released_sem;
-    zassert_ok(k_sem_init(&waiting_sem, 0, 2), "waiting semaphore should init");
-    zassert_ok(k_sem_init(&released_sem, 0, 2), "released semaphore should init");
-
-    TestHarness harness0{&condition, &predicate, &waiting_sem, &released_sem};
-    TestHarness harness1{&condition, &predicate, &waiting_sem, &released_sem};
-
-    k_tid_t tid0 = k_thread_create(
-        &test_thread1,
-        test_stack1,
-        K_THREAD_STACK_SIZEOF(test_stack1),
-        broadcast_waiter_entry,
-        &harness0,
-        nullptr,
-        nullptr,
-        K_PRIO_PREEMPT(1),
-        0,
-        K_NO_WAIT
-    );
-    zassert_not_null(tid0, "first waiter thread should have started");
-
-    k_tid_t tid1 = k_thread_create(
-        &test_thread2,
-        test_stack2,
-        K_THREAD_STACK_SIZEOF(test_stack2),
-        broadcast_waiter_entry,
-        &harness1,
-        nullptr,
-        nullptr,
-        K_PRIO_PREEMPT(1),
-        0,
-        K_NO_WAIT
-    );
-    zassert_not_null(tid1, "second waiter thread should have started");
-
-    zassert_ok(k_sem_take(&waiting_sem, K_MSEC(100)), "first waiter should report waiting");
-    zassert_ok(k_sem_take(&waiting_sem, K_MSEC(100)), "second waiter should report waiting");
-
-    k_sleep(K_MSEC(100));
+    int         lock_result = 0;
+    TestHarness harness{
+        .condition     = &condition,
+        .started_sem   = &start_sem,
+        .completed_sem = &done_sem,
+        .result_slot   = &lock_result,
+    };
 
     {
         auto guard = condition.lockguard();
-        predicate  = true;
-        zassert_equal(condition.broadcast(), 2, "broadcast should awake 2 waiters");
+
+        k_tid_t tid = k_thread_create(
+            &test_thread1,
+            test_stack1,
+            K_THREAD_STACK_SIZEOF(test_stack1),
+            lock_attempt_entry,
+            &harness,
+            nullptr,
+            nullptr,
+            K_PRIO_PREEMPT(1),
+            0,
+            K_NO_WAIT
+        );
+        zassert_not_null(tid, "lock attempt worker should start");
+
+        zassert_ok(k_sem_take(&start_sem, K_MSEC(100)), "worker should attempt lock while guard active");
+        zassert_ok(k_sem_take(&done_sem, K_MSEC(100)), "worker should finish lock attempt");
+        zassert_equal(lock_result, -EBUSY, "lock attempt from another thread should see busy mutex");
     }
 
-    zassert_ok(k_sem_take(&released_sem, K_MSEC(100)), "first waiter should be released");
-    zassert_ok(k_sem_take(&released_sem, K_MSEC(100)), "second waiter should be released");
+    zassert_ok(condition.lock(K_NO_WAIT), "mutex should be reacquirable after guard scope");
+    zassert_ok(condition.unlock(), "reacquired mutex should unlock cleanly");
+}
+
+ZTEST(condition_tests, test_wait_for_handles_spurious_signal) {
+    spn::Condition condition;
+    bool           predicate = false;
+
+    k_sem start_sem_spurious;
+    k_sem start_sem_fulfill;
+    k_sem done_sem_spurious;
+    k_sem done_sem_fulfill;
+    k_sem gate_sem;
+
+    zassert_ok(k_sem_init(&start_sem_spurious, 0, 1), "start semaphore should init");
+    zassert_ok(k_sem_init(&start_sem_fulfill, 0, 1), "start semaphore should init");
+    zassert_ok(k_sem_init(&done_sem_spurious, 0, 1), "done semaphore should init");
+    zassert_ok(k_sem_init(&done_sem_fulfill, 0, 1), "done semaphore should init");
+    zassert_ok(k_sem_init(&gate_sem, 0, 1), "gate semaphore should init");
+
+    TestHarness spurious_ctx{
+        .condition     = &condition,
+        .predicate     = &predicate,
+        .set_predicate = false,
+        .started_sem   = &start_sem_spurious,
+        .completed_sem = &done_sem_spurious,
+        .wait_sem      = nullptr,
+        .notify_sem    = &gate_sem,
+    };
+
+    TestHarness fulfilling_ctx{
+        .condition     = &condition,
+        .predicate     = &predicate,
+        .set_predicate = true,
+        .started_sem   = &start_sem_fulfill,
+        .completed_sem = &done_sem_fulfill,
+        .wait_sem      = &gate_sem,
+        .notify_sem    = nullptr,
+    };
+
+    auto guard = condition.lockguard();
+
+    k_tid_t spurious_tid = k_thread_create(
+        &test_thread1,
+        test_stack1,
+        K_THREAD_STACK_SIZEOF(test_stack1),
+        signal_worker_entry,
+        &spurious_ctx,
+        nullptr,
+        nullptr,
+        K_PRIO_PREEMPT(1),
+        0,
+        K_NO_WAIT
+    );
+    zassert_not_null(spurious_tid, "spurious signal worker should start");
+
+    k_tid_t fulfilling_tid = k_thread_create(
+        &test_thread2,
+        test_stack2,
+        K_THREAD_STACK_SIZEOF(test_stack2),
+        signal_worker_entry,
+        &fulfilling_ctx,
+        nullptr,
+        nullptr,
+        K_PRIO_PREEMPT(1),
+        0,
+        K_NO_WAIT
+    );
+    zassert_not_null(fulfilling_tid, "fulfilling worker should start");
+
+    zassert_ok(k_sem_take(&start_sem_spurious, K_MSEC(100)), "spurious worker should reach start barrier");
+    zassert_ok(k_sem_take(&start_sem_fulfill, K_MSEC(100)), "fulfilling worker should reach start barrier");
+
+    bool result = condition.wait_for(K_MSEC(200), [&predicate] { return predicate; });
+    zassert_true(result, "wait_for should return true once predicate is eventually satisfied");
+    zassert_true(predicate, "predicate should be set by fulfilling worker");
+
+    zassert_ok(k_sem_take(&done_sem_spurious, K_MSEC(100)), "spurious worker should complete");
+    zassert_ok(k_sem_take(&done_sem_fulfill, K_MSEC(100)), "fulfilling worker should complete");
 }

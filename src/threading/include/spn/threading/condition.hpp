@@ -26,23 +26,19 @@ public:
     /// Wait for a predicate to become true within a timeout
     template<typename Predicate>
     bool wait_for(k_timeout_t timeout, Predicate pred) {
-        uint32_t start_ms   = k_uptime_get_32();
-        uint32_t timeout_ms = k_ticks_to_ms_floor32(timeout.ticks);
+        if (pred()) return true;
 
-        while (!pred()) {
-            uint32_t now_ms     = k_uptime_get_32();
-            uint32_t elapsed_ms = now_ms - start_ms;
+        const bool     is_forever = K_TIMEOUT_EQ(timeout, K_FOREVER);
+        const uint32_t end_ms     = is_forever ? 0 : k_uptime_get_32() + k_ticks_to_ms_floor32(timeout.ticks);
 
-            if (elapsed_ms >= timeout_ms) {
-                return false; // timeout expired
+        do {
+            k_timeout_t wait_timeout = is_forever ? K_FOREVER : K_MSEC(end_ms - k_uptime_get_32());
+
+            if (wait(wait_timeout) == -EAGAIN && !is_forever) {
+                return false;
             }
+        } while (!pred());
 
-            uint32_t    remaining_ms      = timeout_ms - elapsed_ms;
-            k_timeout_t remaining_timeout = K_MSEC(remaining_ms);
-
-            int ret = wait(remaining_timeout);
-            if (ret == -EAGAIN) return false; // timeout expired during wait
-        }
         return true;
     }
 
