@@ -53,12 +53,12 @@ expect_handler_f spn_expect_handler();
                 }                                                                                                      \
             } while (0)
 #    else
-#        define spn_assert(condition) __ASSERT(condition, "spn_assert failed: %s", #        condition)
+#        define spn_assert(condition) __ASSERT(condition, "spn_assert failed: %s", #condition)
 
 #        define spn_expect(condition)                                                                                  \
             do {                                                                                                       \
                 if (!(condition)) {                                                                                    \
-                    MLOG_WRN(spn_debugging("spn_expect failed: %s at %s:%d", #condition, __FILE__, __LINE__);          \
+                    MLOG_WRN(spn_debugging, "spn_expect failed: %s at %s:%d", #condition, __FILE__, __LINE__);         \
                 }                                                                                                      \
             } while (0)
 #    endif
