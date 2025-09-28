@@ -43,12 +43,12 @@ void waiter_entry(void* context_ptr, void*, void*) {
 }
 
 struct WithLockTimeoutContext {
-    spn::Mutex* mutex               = nullptr;
-    bool        int_callable_ran    = false;
-    bool        struct_callable_ran = false;
-    int         int_result          = 0;
-    TestSample  struct_result;
-    k_sem       done;
+    spn::Mutex*                  mutex               = nullptr;
+    bool                         int_callable_ran    = false;
+    bool                         struct_callable_ran = false;
+    spn::Result<int, int>        int_result;
+    spn::Result<TestSample, int> struct_result;
+    k_sem                        done;
 };
 
 void with_lock_timeout_entry(void* context_ptr, void*, void*) {
@@ -110,17 +110,26 @@ ZTEST(mutex_suite, mutex_with_lock_runs_callable) {
     );
 
     zassert_equal(call_count, 1, "callable should run once");
-    zassert_equal(result, 42, "callable result should propagate");
+    zassert_true(result.is_ok(), "result should be success");
+    zassert_equal(result.value(), 42, "callable result should propagate");
 }
 
-ZTEST(mutex_suite, mutex_with_lock_returns_defaults_on_timeout) {
+ZTEST(mutex_suite, mutex_with_lock_void_callable) {
+    spn::Mutex mutex;
+    auto       call_count = 0;
+
+    const auto result = mutex.with_lock([&call_count]() { ++call_count; }, K_FOREVER);
+
+    zassert_equal(call_count, 1, "void callable should run once");
+    zassert_true(result.is_ok(), "void result should be success");
+}
+
+ZTEST(mutex_suite, mutex_with_lock_returns_error_on_timeout) {
     spn::Mutex mutex;
     zassert_ok(mutex.lock(K_NO_WAIT), "primary thread acquires mutex");
 
     WithLockTimeoutContext context{};
-    context.mutex               = &mutex;
-    context.int_result          = 99;
-    context.struct_result.value = 88;
+    context.mutex = &mutex;
     zassert_ok(k_sem_init(&context.done, 0, 1), "completion semaphore should init");
 
     k_tid_t tid = k_thread_create(
@@ -140,9 +149,12 @@ ZTEST(mutex_suite, mutex_with_lock_returns_defaults_on_timeout) {
     zassert_ok(k_sem_take(&context.done, TestTimeout), "timeout thread should signal");
 
     zassert_false(context.int_callable_ran, "int callable should not run");
-    zassert_equal(context.int_result, 0, "int result should fall back to default");
+    zassert_true(context.int_result.is_err(), "int result should indicate lock failure");
+    zassert_equal(context.int_result.error(), -EBUSY, "should return busy error code");
+
     zassert_false(context.struct_callable_ran, "struct callable should not run");
-    zassert_equal(context.struct_result.value, -1, "struct result should remain default");
+    zassert_true(context.struct_result.is_err(), "struct result should indicate lock failure");
+    zassert_equal(context.struct_result.error(), -EBUSY, "should return busy error code");
 
     zassert_ok(mutex.unlock(), "primary thread releases mutex");
 }

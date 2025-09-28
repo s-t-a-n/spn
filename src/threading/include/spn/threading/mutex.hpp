@@ -1,5 +1,6 @@
 #pragma once
 
+#include "spn/containers/result.hpp"
 #include "spn/threading/lockguard.hpp"
 
 #include <etl/utility.h>
@@ -28,24 +29,25 @@ public:
     int unlock() noexcept { return k_mutex_unlock(&_mutex); }
 
     /// Runs a lambda function in a locked context
-    /// note: returns default-constructed value on lock timeout
+    /// note: returns Result with lock error code on failure
     template<typename Callable>
-    auto with_lock(Callable&& func, k_timeout_t timeout = K_NO_WAIT) noexcept(noexcept(func())) {
-        if (lock(timeout) != 0) {
-            if constexpr (std::is_void_v<decltype(func())>) {
-                return;
-            } else {
-                return decltype(func()){};
-            }
+    auto with_lock(Callable&& func, k_timeout_t timeout = K_NO_WAIT) {
+        using ReturnType = decltype(func());
+        using ResultType = Result<ReturnType, int>;
+
+        int lock_result = lock(timeout);
+        if (lock_result != 0) {
+            return ResultType::failed(lock_result);
         }
 
-        if constexpr (std::is_void_v<decltype(func())>) {
+        if constexpr (std::is_void_v<ReturnType>) {
             etl::forward<Callable>(func)();
             unlock();
+            return ResultType(ResultType::ok);
         } else {
-            auto r = etl::forward<Callable>(func)();
+            auto value = etl::forward<Callable>(func)();
             unlock();
-            return r;
+            return ResultType(ResultType::ok, etl::move(value));
         }
     }
 

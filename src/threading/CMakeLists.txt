@@ -10,6 +10,7 @@ zephyr_library_sources(
 )
 
 target_link_libraries(spn_threading PUBLIC
+        spn::containers
         spn::core
         spn::logging
         spn::debugging

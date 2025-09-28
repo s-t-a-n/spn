@@ -1,5 +1,6 @@
 config SPN_THREADING
     bool "Enable SPN threading primitives"
+    select SPN_CONTAINERS
     select SPN_CORE
     select SPN_DEBUGGING
     select SPN_LOGGING
