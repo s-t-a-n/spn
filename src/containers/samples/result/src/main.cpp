@@ -21,8 +21,8 @@ void basic_usage() {
     Result<int, ErrorCode> success_result(10);
     Result<int, ErrorCode> error_result = Result<int, ErrorCode>::failed(ErrorCode::SomethingWentWrong);
 
-    if (success_result.is_success()) LOG_INF("Success result value: %d", success_result.value());
-    if (error_result.is_failed()) LOG_INF("Error result: %s", error_code_to_string(error_result.error_value()));
+    if (success_result.is_ok()) LOG_INF("Success result value: %d", success_result.value());
+    if (error_result.is_err()) LOG_INF("Error result: %s", error_code_to_string(error_result.error()));
 }
 
 void transformation_operations() {
@@ -33,12 +33,12 @@ void transformation_operations() {
 
     // map transforms success value
     auto mapped_result = success_result.map([](const int& value) { return value * 2; });
-    if (mapped_result.is_success()) LOG_INF("Mapped success value: %d", mapped_result.value());
+    if (mapped_result.is_ok()) LOG_INF("Mapped success value: %d", mapped_result.value());
 
     // map_error transforms error value
     auto mapped_error_result = error_result.map_error([](ErrorCode err) { return ErrorCode::SomethingWentWrong; });
-    if (mapped_error_result.is_failed())
-        LOG_INF("Mapped error result: %s", error_code_to_string(mapped_error_result.error_value()));
+    if (mapped_error_result.is_err())
+        LOG_INF("Mapped error result: %s", error_code_to_string(mapped_error_result.error()));
 }
 
 void error_recovery() {
@@ -52,14 +52,14 @@ void error_recovery() {
         if (value > 5) return Result<int, ErrorCode>(value * 3);
         return Result<int, ErrorCode>::failed(ErrorCode::ValueTooSmall);
     });
-    if (chained_result.is_success()) LOG_INF("Chained result success: %d", chained_result.value());
+    if (chained_result.is_ok()) LOG_INF("Chained result success: %d", chained_result.value());
 
     // or_else provides fallback on error
     auto recovered_result = error_result.or_else([](ErrorCode err) -> Result<int, ErrorCode> {
         LOG_INF("Recovering from error: %s", error_code_to_string(err));
         return Result<int, ErrorCode>(42);
     });
-    if (recovered_result.is_success()) LOG_INF("Recovered result success: %d", recovered_result.value());
+    if (recovered_result.is_ok()) LOG_INF("Recovered result success: %d", recovered_result.value());
 }
 
 void intermediary_processing() {
@@ -80,7 +80,7 @@ void intermediary_processing() {
                                 if (intermediary_value > 0) return Result<int, ErrorCode, int>(intermediary_value + 10);
                                 return Result<int, ErrorCode, int>::failed(ErrorCode::InvalidIntermediary);
                             });
-    if (final_result.is_success()) LOG_INF("Final result success: %d", final_result.value());
+    if (final_result.is_ok()) LOG_INF("Final result success: %d", final_result.value());
 }
 
 int main() {
