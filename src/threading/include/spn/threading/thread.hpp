@@ -80,8 +80,8 @@ public:
         auto lockguard = _mutex.lockguard();
 
         if (k_event_test(&_ev, U32(ThreadState::IDLE)) == U32(ThreadState::IDLE)) {
-            k_thread_start(&_thread);
             k_event_set_masked(&_ev, U32(ThreadState::STARTING), U32(ThreadState::MASK_STATE));
+            k_thread_start(&_thread);
             return 0;
         }
         return -EINVAL;
@@ -143,6 +143,11 @@ public:
 
         if (flags == U32(ThreadState::STOPPED)) return 0;
         if (flags == U32(ThreadState::ABORTED)) return -EINVAL;
+
+        if (flags == U32(ThreadState::IDLE)) {
+            k_event_set_masked(&_ev, U32(ThreadState::STOPPED), U32(ThreadState::MASK_STATE));
+            return 0;
+        }
 
         if (flags & U32(ThreadState::RUNNING | ThreadState::PAUSED)) {
             k_event_set_masked(&_ev, U32(ThreadState::STOPPING), U32(ThreadState::MASK_STATE));
@@ -219,7 +224,7 @@ private:
 
             while (k_event_test(event, U32(ThreadState::MASK_STATE)) == U32(ThreadState::RUNNING)) {
                 delegate(arg, ThreadState::RUNNING);
-                k_yield(); // todo: yield on a deadline
+                k_yield(); // TODO: investigate various options for handling busy loops. like, yield on a deadline
             }
 
             if (k_event_test(event, U32(ThreadState::MASK_STATE)) == U32(ThreadState::PAUSING)) {

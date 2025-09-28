@@ -153,3 +153,41 @@ ZTEST(thread_suite, thread_adjust_priority_updates_value) {
     zassert_ok(thread.stop(TestTimeout));
     zassert_ok(k_sem_take(&harness.stopping, TestTimeout), "thread should report stopping");
 }
+
+ZTEST(thread_suite, thread_stop_handles_all_states) {
+    ThreadHarness harness{};
+    init_harness(harness);
+
+    auto       delegate = TestThread::Delegate::create<thread_delegate>();
+    TestThread thread(delegate, &harness, 5, "thread_stop_states");
+
+    // Test IDLE -> STOPPED transition
+    zassert_equal(thread.state(), spn::ThreadState::IDLE, "thread should start in IDLE");
+    zassert_ok(thread.stop(K_NO_WAIT), "stop() from IDLE should succeed immediately");
+    zassert_equal(thread.state(), spn::ThreadState::STOPPED, "thread should be STOPPED after stop() from IDLE");
+
+    // Test idempotent stop() on STOPPED thread
+    zassert_ok(thread.stop(K_NO_WAIT), "second stop() should be successful no-op");
+    zassert_equal(thread.state(), spn::ThreadState::STOPPED, "thread should remain STOPPED");
+}
+
+ZTEST(thread_suite, thread_stop_from_paused_state) {
+    ThreadHarness harness{};
+    init_harness(harness);
+
+    auto       delegate = TestThread::Delegate::create<thread_delegate>();
+    TestThread thread(delegate, &harness, 5, "thread_paused_stop");
+
+    zassert_ok(thread.start());
+    zassert_ok(k_sem_take(&harness.started, TestTimeout), "thread should start");
+    zassert_ok(k_sem_take(&harness.running, TestTimeout), "thread should be running");
+
+    zassert_ok(thread.pause(TestTimeout), "thread should pause successfully");
+    zassert_ok(k_sem_take(&harness.pausing, TestTimeout), "thread should report pausing");
+    zassert_equal(thread.state(), spn::ThreadState::PAUSED, "thread should be paused");
+
+    // Test stop() from PAUSED state
+    zassert_ok(thread.stop(TestTimeout), "stop() from PAUSED should succeed");
+    zassert_ok(k_sem_take(&harness.stopping, TestTimeout), "thread should report stopping");
+    zassert_equal(thread.state(), spn::ThreadState::STOPPED, "thread should be stopped");
+}
