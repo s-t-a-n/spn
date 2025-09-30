@@ -1,0 +1,198 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZEPHYR_VERSION: v3.7.1
+  ZEPHYR_SDK_VERSION: 0.16.8
+  WORKSPACE_DIR: /tmp/zephyr-workspace
+  MANIFEST_REPO: s-t-a-n/spn-workspace
+  MANIFEST_DIR: /tmp/zephyr-workspace/spn-workspace
+  MODULE_DIR: /tmp/zephyr-workspace/spn
+
+jobs:
+  format-check:
+    name: format
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Debug environment
+        run: |
+          echo "=== Host Environment ==="
+          echo "User: $(id)"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo "HOME: $HOME"
+          echo "PWD: $PWD"
+
+      - name: Build CI image
+        run: |
+          echo "=== Building Docker Image ==="
+          echo "UID: $(id -u), GID: $(id -g)"
+          docker buildx build -t spn-ci:local \
+            --build-arg ZEPHYR_VERSION=${{ env.ZEPHYR_VERSION }} \
+            --build-arg ZEPHYR_SDK_VERSION=${{ env.ZEPHYR_SDK_VERSION }} \
+            --build-arg USER_UID=$(id -u) \
+            --build-arg USER_GID=$(id -g) \
+            --load \
+            -f .github/ci/Dockerfile \
+            .github/ci
+
+      - name: Run format check inside container
+        run: |
+          echo "=== Running Format Check ==="
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE":/work:ro -w /work \
+            spn-ci:local \
+            bash -lc 'make format_check'
+
+  ci:
+    name: build-test-analyze
+    runs-on: ubuntu-24.04
+    needs: format-check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Debug environment
+        run: |
+          echo "=== Host Environment ==="
+          echo "User: $(id)"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo "HOME: $HOME"
+
+      - name: Prepare cache directories
+        run: |
+          echo "=== Preparing Cache Directories ==="
+          mkdir -p "$HOME/zephyr-workspace-cache"
+          mkdir -p "$HOME/.cache/zephyr"
+          mkdir -p "$HOME/.cache/ccache"
+          echo "Cache directories created with ownership: $(id -u):$(id -g)"
+          ls -la "$HOME" | grep -E '(zephyr-workspace-cache|\.cache)' || true
+
+      - name: Build CI image
+        run: |
+          echo "=== Building Docker Image ==="
+          echo "UID: $(id -u), GID: $(id -g)"
+          docker buildx build -t spn-ci:local \
+            --build-arg ZEPHYR_VERSION=${{ env.ZEPHYR_VERSION }} \
+            --build-arg ZEPHYR_SDK_VERSION=${{ env.ZEPHYR_SDK_VERSION }} \
+            --build-arg USER_UID=$(id -u) \
+            --build-arg USER_GID=$(id -g) \
+            --load \
+            -f .github/ci/Dockerfile \
+            .github/ci
+
+      - name: Cache Zephyr workspace
+        uses: actions/cache@v4
+        with:
+          path: ~/zephyr-workspace-cache
+          key: ws-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-${{ hashFiles('**/CMakeLists.txt', '**/Kconfig') }}
+          restore-keys: |
+            ws-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-
+
+      - name: Cache Twister
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/zephyr
+          key: twister-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-${{ hashFiles('**/CMakeLists.txt','**/testcase.yaml','**/prj.conf','zephyr/module.yml') }}
+          restore-keys: |
+            twister-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-${{ hashFiles('**/CMakeLists.txt','**/testcase.yaml','**/prj.conf','zephyr/module.yml') }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-
+
+      - name: Run CI pipeline inside container
+        env:
+          ZEPHYR_VERSION: ${{ env.ZEPHYR_VERSION }}
+          ZEPHYR_SDK_VERSION: ${{ env.ZEPHYR_SDK_VERSION }}
+        run: |
+          echo "=== Running CI Pipeline ==="
+          echo "Mounting source as read-only from: $GITHUB_WORKSPACE"
+          echo "Workspace cache: $HOME/zephyr-workspace-cache"
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE":/work:ro -w /work \
+            -v "$HOME/zephyr-workspace-cache":/tmp/zephyr-workspace \
+            -v "$HOME/.cache/zephyr":/home/runner/.cache/zephyr \
+            -v "$HOME/.cache/ccache":/home/runner/.cache/ccache \
+            -e ZEPHYR_SDK_INSTALL_DIR=/opt/zephyr-sdk-${ZEPHYR_SDK_VERSION} \
+            -e CCACHE_DIR=/home/runner/.cache/ccache \
+            -e ZEPHYR_VERSION="${ZEPHYR_VERSION}" \
+            -e WORKSPACE_DIR=/tmp/zephyr-workspace \
+            -e MANIFEST_REPO="${{ env.MANIFEST_REPO }}" \
+            -e MANIFEST_DIR=/tmp/zephyr-workspace/spn-workspace \
+            -e MODULE_DIR=/tmp/zephyr-workspace/spn \
+            spn-ci:local \
+            bash -lc '
+              set -euo pipefail
+              git config --global --add safe.directory /work || true
+              git config --global --add safe.directory /tmp/zephyr-workspace/spn || true
+
+              mkdir -p "$WORKSPACE_DIR"
+              if [ ! -d "$MANIFEST_DIR" ]; then
+                git clone --depth=1 "https://github.com/$MANIFEST_REPO.git" "$MANIFEST_DIR"
+              fi
+
+              cd "$WORKSPACE_DIR"
+              if [ ! -f .west/config ]; then
+                west init -l "$MANIFEST_DIR"
+              fi
+              west update --narrow --fetch-opt=--depth=1
+              west zephyr-export
+              export ZEPHYR_BASE="$WORKSPACE_DIR/zephyr"
+              export ZEPHYR_SDK_INSTALL_DIR="${ZEPHYR_SDK_INSTALL_DIR}"
+
+              mkdir -p "$MODULE_DIR"
+              rsync -a --delete \
+                --exclude='build_*' \
+                --exclude='twister-out' \
+                --exclude='.cache' \
+                --exclude='*.pyc' \
+                --exclude='__pycache__' \
+                /work/ "$MODULE_DIR"/
+
+              export ZEPHYR_EXTRA_MODULES="$MODULE_DIR"
+              export CMAKE_C_COMPILER_LAUNCHER=ccache
+              export CMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+              cd "$MODULE_DIR"
+              make clean # clean out residuals in host build folder
+              timeout -s INT -k 2 1800 make ci
+            '
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: ~/zephyr-workspace-cache/spn/build_tests/coverage_report/
+          retention-days: 30
+
+      - name: Upload build artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            ~/zephyr-workspace-cache/spn/build_*/
+            ~/zephyr-workspace-cache/spn/twister-out/
+          retention-days: 7
+
+      - name: Evict module from workspace cache
+        if: always()
+        run: rm -rf "$HOME/zephyr-workspace-cache/spn"
