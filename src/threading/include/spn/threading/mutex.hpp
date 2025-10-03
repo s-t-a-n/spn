@@ -3,10 +3,9 @@
 #include "spn/containers/result.hpp"
 #include "spn/threading/lockguard.hpp"
 
+#include <etl/type_traits.h>
 #include <etl/utility.h>
 #include <zephyr/kernel.h>
-
-#include <type_traits>
 
 namespace spn {
 
@@ -35,18 +34,17 @@ public:
         using ReturnType = decltype(func());
         using ResultType = Result<ReturnType, int>;
 
-        int lock_result = lock(timeout);
+        auto lg          = deferred_lockguard();
+        int  lock_result = lg.lock(timeout);
         if (lock_result != 0) {
             return ResultType::failed(lock_result);
         }
 
-        if constexpr (std::is_void_v<ReturnType>) {
+        if constexpr (etl::is_void_v<ReturnType>) {
             etl::forward<Callable>(func)();
-            unlock();
             return ResultType(ResultType::ok);
         } else {
             auto value = etl::forward<Callable>(func)();
-            unlock();
             return ResultType(ResultType::ok, etl::move(value));
         }
     }

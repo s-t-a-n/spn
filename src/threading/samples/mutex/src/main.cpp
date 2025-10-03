@@ -18,13 +18,16 @@ struct WorkerData {
 static void worker_thread(WorkerData* data, spn::ThreadState state) {
     if (state == spn::ThreadState::RUNNING) {
         for (int i = 0; i < data->iterations; ++i) {
-            global_mutex.with_lock([data, i]() {
+            auto result = global_mutex.with_lock([data, i]() {
                 int current = shared_counter;
                 LOG_INF("Worker %d (iteration %d): counter was %d", data->worker_id, i + 1, current);
                 k_busy_wait(100);
                 shared_counter = current + 1;
                 LOG_INF("Worker %d (iteration %d): counter now %d", data->worker_id, i + 1, shared_counter);
             });
+            if (result.is_err()) {
+                LOG_ERR("Worker %d failed to acquire mutex: %d", data->worker_id, result.error());
+            }
             k_msleep(50);
         }
         LOG_INF("Worker %d completed all iterations", data->worker_id);
@@ -53,12 +56,16 @@ static void demonstrate_basic_usage() {
     LOG_INF("Mutex automatically unlocked");
 
     LOG_INF("Lambda execution with with_lock:");
-    int result = local_mutex.with_lock([]() {
+    auto result = local_mutex.with_lock([]() {
         LOG_INF("Executing in locked context");
         k_msleep(10);
         return 42;
     });
-    LOG_INF("Lambda returned: %d", result);
+    if (result.is_ok()) {
+        LOG_INF("Lambda returned: %d", result.value());
+    } else {
+        LOG_ERR("Failed to acquire mutex: %d", result.error());
+    }
 }
 
 static void demonstrate_timeout_handling() {
@@ -66,7 +73,10 @@ static void demonstrate_timeout_handling() {
 
     spn::Mutex timeout_mutex;
 
-    timeout_mutex.lock();
+    if (timeout_mutex.lock() != 0) {
+        LOG_ERR("Failed to acquire initial mutex lock");
+        return;
+    }
     LOG_INF("Mutex locked, attempting timeout lock...");
 
     if (timeout_mutex.lock(K_NO_WAIT) != 0) {
@@ -87,10 +97,17 @@ static void demonstrate_reentrant_locking() {
     spn::Mutex reentrant_mutex;
 
     LOG_INF("First lock...");
-    reentrant_mutex.lock();
+    if (reentrant_mutex.lock() != 0) {
+        LOG_ERR("Failed to acquire first mutex lock");
+        return;
+    }
 
     LOG_INF("Nested lock (reentrant)...");
-    reentrant_mutex.lock();
+    if (reentrant_mutex.lock() != 0) {
+        LOG_ERR("Failed to acquire nested mutex lock");
+        reentrant_mutex.unlock();
+        return;
+    }
 
     LOG_INF("Both locks acquired successfully");
 

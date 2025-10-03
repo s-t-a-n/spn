@@ -87,7 +87,7 @@ static void test_teardown(void* fixture) {
 
 ZTEST_SUITE(mutex_suite, NULL, NULL, NULL, test_teardown, NULL);
 
-ZTEST(mutex_suite, mutex_reentrant_locking) {
+ZTEST(mutex_suite, test_mutex_reentrant_locking) {
     spn::Mutex mutex;
 
     zassert_ok(mutex.lock(K_NO_WAIT), "first lock should succeed");
@@ -97,7 +97,7 @@ ZTEST(mutex_suite, mutex_reentrant_locking) {
     zassert_not_equal(mutex.unlock(), 0, "extra unlock should fail");
 }
 
-ZTEST(mutex_suite, mutex_with_lock_runs_callable) {
+ZTEST(mutex_suite, test_mutex_with_lock_runs_callable) {
     spn::Mutex mutex;
     auto       call_count = 0;
 
@@ -114,7 +114,7 @@ ZTEST(mutex_suite, mutex_with_lock_runs_callable) {
     zassert_equal(result.value(), 42, "callable result should propagate");
 }
 
-ZTEST(mutex_suite, mutex_with_lock_void_callable) {
+ZTEST(mutex_suite, test_mutex_with_lock_void_callable) {
     spn::Mutex mutex;
     auto       call_count = 0;
 
@@ -124,7 +124,7 @@ ZTEST(mutex_suite, mutex_with_lock_void_callable) {
     zassert_true(result.is_ok(), "void result should be success");
 }
 
-ZTEST(mutex_suite, mutex_with_lock_returns_error_on_timeout) {
+ZTEST(mutex_suite, test_mutex_with_lock_returns_error_on_timeout) {
     spn::Mutex mutex;
     zassert_ok(mutex.lock(K_NO_WAIT), "primary thread acquires mutex");
 
@@ -159,7 +159,7 @@ ZTEST(mutex_suite, mutex_with_lock_returns_error_on_timeout) {
     zassert_ok(mutex.unlock(), "primary thread releases mutex");
 }
 
-ZTEST(mutex_suite, mutex_lockguard_releases_mutex) {
+ZTEST(mutex_suite, test_mutex_lockguard_releases_mutex) {
     spn::Mutex mutex;
 
     WaiterContext waiter{};
@@ -197,7 +197,7 @@ ZTEST(mutex_suite, mutex_lockguard_releases_mutex) {
     zassert_equal(waiter.second_unlock, 0, "waiter unlock should succeed");
 }
 
-ZTEST(mutex_suite, mutex_deferred_lockguard_controls_locking) {
+ZTEST(mutex_suite, test_mutex_deferred_lockguard_controls_locking) {
     spn::Mutex mutex;
 
     {
@@ -215,7 +215,7 @@ ZTEST(mutex_suite, mutex_deferred_lockguard_controls_locking) {
     zassert_ok(mutex.unlock(), "cleanup unlock should succeed");
 }
 
-ZTEST(mutex_suite, mutex_adopted_lockguard_releases_on_scope_exit) {
+ZTEST(mutex_suite, test_mutex_adopted_lockguard_releases_on_scope_exit) {
     spn::Mutex mutex;
     zassert_ok(mutex.lock(K_NO_WAIT), "pre-lock mutex for adopted guard");
 
@@ -231,7 +231,7 @@ ZTEST(mutex_suite, mutex_adopted_lockguard_releases_on_scope_exit) {
     zassert_ok(mutex.unlock(), "cleanup unlock should succeed");
 }
 
-ZTEST(mutex_suite, mutex_thread_contention_blocks_until_release) {
+ZTEST(mutex_suite, test_mutex_thread_contention_blocks_until_release) {
     spn::Mutex mutex;
 
     WaiterContext waiter{};
