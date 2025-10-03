@@ -23,13 +23,13 @@ public:
     int take(const k_timeout_t timeout = K_FOREVER) { return k_sem_take(&_sem, timeout); }
 
     /// Get current semaphore count
-    unsigned int count() { return k_sem_count_get(&_sem); }
+    size_t count() const { return k_sem_count_get(&_sem); }
 
     /// Get maximum semaphore limit
     static constexpr auto limit() { return Limit; }
 
 private:
-    k_sem _sem{};
+    mutable k_sem _sem{};
 };
 
 // note: no tests for this class as we are not adding any behaviour over C-components provided upstream

@@ -46,7 +46,7 @@ struct ArgWorkContext {
 
 ZTEST_SUITE(work_suite, nullptr, nullptr, nullptr, nullptr, nullptr);
 
-ZTEST(work_suite, work_schedule_runs_handler_once) {
+ZTEST(work_suite, test_work_schedule_runs_handler_once) {
     VoidWorkContext owner;
 
     int schedule_rc = owner.work.schedule(K_MSEC(10));
@@ -60,7 +60,7 @@ ZTEST(work_suite, work_schedule_runs_handler_once) {
     zassert_false(owner.work.is_scheduled(), "work should clear pending state after run");
 }
 
-ZTEST(work_suite, work_cancel_prevents_execution) {
+ZTEST(work_suite, test_work_cancel_prevents_execution) {
     VoidWorkContext owner;
 
     zassert_true(owner.work.schedule(K_MSEC(100)) >= 0, "schedule should succeed");
@@ -74,7 +74,7 @@ ZTEST(work_suite, work_cancel_prevents_execution) {
     zassert_equal(owner.call_count, 0, "cancelled work should not invoke handler");
 }
 
-ZTEST(work_suite, work_cancel_inside_handler_is_safe) {
+ZTEST(work_suite, test_work_cancel_inside_handler_is_safe) {
     VoidWorkContext owner;
     owner.cancel_inside_handler = true;
 
@@ -88,7 +88,7 @@ ZTEST(work_suite, work_cancel_inside_handler_is_safe) {
     zassert_equal(owner.call_count, 2, "handler should run again after reuse");
 }
 
-ZTEST(work_suite, work_with_argument_passes_pointer) {
+ZTEST(work_suite, test_work_with_argument_passes_pointer) {
     ArgWorkContext owner;
     int            value = 42;
 
@@ -99,7 +99,7 @@ ZTEST(work_suite, work_with_argument_passes_pointer) {
     zassert_equal(owner.call_count, 1, "argument handler should run exactly once");
 }
 
-ZTEST(work_suite, work_reschedule_uses_latest_argument) {
+ZTEST(work_suite, test_work_reschedule_uses_latest_argument) {
     ArgWorkContext owner;
     int            first  = 1;
     int            second = 2;
@@ -113,7 +113,7 @@ ZTEST(work_suite, work_reschedule_uses_latest_argument) {
     zassert_equal(owner.call_count, 1, "reschedule should result in a single handler call");
 }
 
-ZTEST(work_suite, work_flush_waits_and_reports) {
+ZTEST(work_suite, test_work_flush_waits_and_reports) {
     VoidWorkContext owner;
 
     zassert_true(owner.work.schedule(K_MSEC(50)) >= 0, "schedule should succeed");

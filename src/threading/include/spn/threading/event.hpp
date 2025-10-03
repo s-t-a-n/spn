@@ -1,8 +1,7 @@
 #pragma once
 
+#include <etl/type_traits.h>
 #include <zephyr/kernel.h>
-
-#include <type_traits>
 
 namespace spn {
 
@@ -11,9 +10,9 @@ template<typename Enum>
 class Event {
 public:
     using flag_t = Enum;
-    using mask_t = std::underlying_type_t<Enum>;
+    using mask_t = etl::underlying_type_t<Enum>;
 
-    static_assert(std::is_enum_v<Enum>, "Event requires an enum or enum class type");
+    static_assert(etl::is_enum_v<Enum>, "Event requires an enum or enum class type");
     static_assert(sizeof(mask_t) == sizeof(uint32_t), "Event flag underlying type must be 32-bit");
 
 public:
