@@ -99,6 +99,11 @@ HeaderFilterRegex: '^(?:.*/src/|.*/samples/|.*/include/spn/)'
 ExtraArgsBefore: ['-xc++', '-std=c++20']
 ExtraArgs: ['-D__STDC_HOSTED__=1', '-D_GLIBCXX_HOSTED=1', '-Wno-error=unknown-warning-option']
 CheckOptions:
+  # ETL library support - recognize etl::forward and etl::move (requires clang-tidy >= 21)
+  - key: cppcoreguidelines-missing-std-forward.ForwardFunction
+    value: '::etl::forward'
+  - key: cppcoreguidelines-rvalue-reference-param-not-moved.MoveFunction
+    value: '::etl::move'
   # Const correctness - catch all missing const for safety
   - key: misc-const-correctness.AnalyzeValues
     value: 'true'

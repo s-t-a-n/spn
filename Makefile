@@ -37,7 +37,7 @@ TIDY_HEADER_FILTER ?= ^$(abspath src)/
 TIDY_SOURCE_FILTER ?= ^$(abspath src)/
 
 # cppcheck static analysis (includes MISRA C subset, threadsafety, y2038 checks)
-CPPCHECK_CONFIG ?= scripts/misra.json
+CPPCHECK_CONFIG ?= scripts/cppcheck_config.json
 CPPCHECK_VERBOSE ?= 0
 CPPCHECK_DETAILED ?= 0
 CPPCHECK_FAIL_ON_VIOLATIONS ?= 0
@@ -380,11 +380,18 @@ cppcheck:
 	if [ "$(CPPCHECK_VERBOSE)" = "1" ]; then VERBOSE_FLAG=-v; fi; \
 	if [ "$(CPPCHECK_DETAILED)" = "1" ]; then DETAILED_FLAG=-d; fi; \
 	if [ "$(CPPCHECK_FAIL_ON_VIOLATIONS)" = "1" ]; then FAIL_FLAG=--fail-on-violations; fi; \
-	if [ -x scripts/cppcheck_misra.py ]; then \
-		python3 scripts/cppcheck_misra.py --config $(CPPCHECK_CONFIG) $$VERBOSE_FLAG $$DETAILED_FLAG $$FAIL_FLAG && \
-		echo "$(GREEN)✓ cppcheck analysis complete$(NC)" || \
-		{ echo "$(YELLOW)⚠ cppcheck violations found (see report above)$(NC)"; \
-		  [ "$(CPPCHECK_FAIL_ON_VIOLATIONS)" = "1" ] && exit 1 || exit 0; }; \
+	if [ -x scripts/cppcheck.py ]; then \
+		python3 scripts/cppcheck.py --config $(CPPCHECK_CONFIG) $$VERBOSE_FLAG $$DETAILED_FLAG $$FAIL_FLAG; \
+		STATUS=$$?; \
+		if [ $$STATUS -eq 0 ]; then \
+			echo "$(GREEN)✓ cppcheck analysis complete$(NC)"; \
+		elif [ $$STATUS -eq 1 ]; then \
+			echo "$(YELLOW)⚠ cppcheck violations found (see report above)$(NC)"; \
+			[ "$(CPPCHECK_FAIL_ON_VIOLATIONS)" = "1" ] && exit 1 || exit 0; \
+		else \
+			echo "$(RED)✗ cppcheck execution failed (exit $$STATUS)$(NC)"; \
+			exit $$STATUS; \
+		fi; \
 	else \
 		echo "$(RED)✗ cppcheck wrapper script not found or not executable$(NC)"; \
 		exit 1; \
