@@ -102,6 +102,21 @@ ZTEST(condition_tests, test_timeout_semantics) {
     zassert_false(result, "wait_for should return false on timeout");
 }
 
+ZTEST(condition_tests, test_timeout_underflow_protection) {
+    spn::Condition condition;
+    bool           flag  = false;
+    auto           guard = condition.lockguard();
+
+    // simulate time passing by using a very short timeout that will expire during first wait
+    uint32_t start_ms = k_uptime_get_32();
+    bool     result   = condition.wait_for(K_MSEC(1), [&flag, start_ms] {
+        // predicate that checks after time has advanced
+        return (k_uptime_get_32() > start_ms + 5) ? flag : false;
+    });
+
+    zassert_false(result, "wait_for should handle deadline overrun without underflow");
+}
+
 ZTEST(condition_tests, test_lockguard_enforces_mutex_ownership) {
     spn::Condition condition;
 

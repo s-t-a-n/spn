@@ -28,14 +28,17 @@ public:
     bool wait_for(k_timeout_t timeout, Predicate pred) {
         if (pred()) return true;
 
-        const bool     is_forever = K_TIMEOUT_EQ(timeout, K_FOREVER);
-        const uint32_t end_ms     = is_forever ? 0 : k_uptime_get_32() + k_ticks_to_ms_floor32(timeout.ticks);
+        auto endpoint = sys_timepoint_calc(timeout);
 
         do {
-            k_timeout_t wait_timeout = is_forever ? K_FOREVER : K_MSEC(end_ms - k_uptime_get_32());
+            auto remaining_timeout = sys_timepoint_timeout(endpoint);
 
-            if (wait(wait_timeout) == -EAGAIN && !is_forever) {
-                return false;
+            if (K_TIMEOUT_EQ(remaining_timeout, K_NO_WAIT)) {
+                return pred();
+            }
+
+            if (wait(remaining_timeout) == -EAGAIN) {
+                return pred();
             }
         } while (!pred());
 
