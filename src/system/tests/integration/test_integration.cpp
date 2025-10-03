@@ -165,7 +165,15 @@ ZTEST(integration_suite, test_concurrent_shutdown_requests) {
 
     k_sleep(K_MSEC(50));
 
-    zassert_true(shutdown_mgr.calls.size() >= 1);
+    zassert_equal(1, shutdown_mgr.calls.size());
+    zassert_true(shutdown_mgr.was_called_with(shutdown_reason::user_request));
+
+    shutdown_mgr.reset();
+
+    request_shutdown(shutdown_reason::network_failure);
+    k_sleep(K_MSEC(10));
+
+    zassert_equal(1, shutdown_mgr.calls.size());
     zassert_true(shutdown_mgr.was_called_with(shutdown_reason::network_failure));
 }
 

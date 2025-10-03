@@ -1,8 +1,7 @@
 #include "spn/system/shutdown.hpp"
 
+#include <etl/initializer_list.h>
 #include <zephyr/ztest.h>
-
-#include <initializer_list>
 
 using namespace spn::system;
 
@@ -47,7 +46,8 @@ ZTEST(shutdown_suite, test_shutdown_all_reasons) {
         shutdown_reason::network_failure,
         shutdown_reason::fatal_assert,
         shutdown_reason::fatal_oops,
-        shutdown_reason::exception_thrown};
+        shutdown_reason::exception_thrown
+    };
 
     for (auto reason : all_reasons) {
         mgr.reset();
@@ -82,7 +82,16 @@ ZTEST(shutdown_suite, test_concurrent_shutdown_requests) {
 
     k_sleep(K_MSEC(50));
 
-    zassert_true(mgr.shutdown_count >= 1);
+    zassert_equal(1, mgr.shutdown_count);
+    zassert_equal(shutdown_reason::user_request, mgr.last_reason);
+
+    // ensure subsequent requests are processed after the first completes
+    mgr.reset();
+
+    request_shutdown(shutdown_reason::network_failure);
+    k_sleep(K_MSEC(10));
+
+    zassert_equal(1, mgr.shutdown_count);
     zassert_equal(shutdown_reason::network_failure, mgr.last_reason);
 }
 

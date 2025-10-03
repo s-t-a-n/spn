@@ -38,7 +38,14 @@ struct assertion_exception : exception {
 
 /// exception handler interface for compatibility with old spn system
 struct ExceptionHandler {
-    virtual ~ExceptionHandler()                        = default;
+    virtual ~ExceptionHandler() = default;
+
+    ExceptionHandler()                                       = default;
+    ExceptionHandler(const ExceptionHandler&)                = delete;
+    ExceptionHandler& operator=(const ExceptionHandler&)     = delete;
+    ExceptionHandler(ExceptionHandler&&) noexcept            = delete;
+    ExceptionHandler& operator=(ExceptionHandler&&) noexcept = delete;
+
     virtual void handle_exception(const exception& ex) = 0;
 };
 
@@ -69,16 +76,27 @@ template<typename ExceptionType>
     throw ex;
 }
 #else
-/// trigger shutdown when C++ exceptions are disabled
+/// trigger cooperative shutdown when C++ exceptions are disabled
 /// note: [[noreturn]] function, calls handler then initiates shutdown
+/// note: in single-threaded context, halts immediately instead of parking
 [[noreturn]] inline void throw_exception(const system::exception& ex) {
     if (auto handler = system::exception_handler(); handler != nullptr) {
         handler->handle_exception(ex);
     }
 
+    if (!IS_ENABLED(CONFIG_MULTITHREADING)) {
+        k_fatal_halt(K_ERR_KERNEL_PANIC);
+    }
+
     system::request_shutdown(system::shutdown_reason::exception_thrown);
-    k_oops();
+
+#    if defined(CONFIG_BOARD_NATIVE_SIM)
+    system::finalize_shutdown(); // when running in simulation, do shut down
+#    endif
+
+    // park the current thread so the scheduler can run the cooperative shutdown
     for (;;) {
+        k_sleep(K_FOREVER);
     }
 }
 #endif

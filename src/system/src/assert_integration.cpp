@@ -10,12 +10,14 @@ LOG_MODULE_DECLARE(spn_system);
 
 namespace spn::system {
 
+#ifdef CONFIG_SPN_ASSERT_HANDLER
 static void system_assert_handler(const char* file, int line, const char* condition, const char* message) {
     MLOG_ERR(spn_system, "assertion failed: %s at %s:%i - %s", condition, file, line, message);
 
     assertion_exception ex(condition);
     spn::throw_exception(ex);
 }
+#endif
 
 void enable_assert_exceptions() {
 #ifdef CONFIG_SPN_ASSERT_HANDLER

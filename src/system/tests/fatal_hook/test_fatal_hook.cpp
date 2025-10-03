@@ -1,9 +1,8 @@
 #include "spn/system/shutdown.hpp"
 
+#include <etl/initializer_list.h>
 #include <zephyr/kernel.h>
 #include <zephyr/ztest.h>
-
-#include <initializer_list>
 
 using namespace spn::system;
 

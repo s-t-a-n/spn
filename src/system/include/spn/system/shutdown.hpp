@@ -20,6 +20,12 @@ class ShutdownManager {
 public:
     virtual ~ShutdownManager() = default;
 
+    ShutdownManager()                                      = default;
+    ShutdownManager(const ShutdownManager&)                = delete;
+    ShutdownManager& operator=(const ShutdownManager&)     = delete;
+    ShutdownManager(ShutdownManager&&) noexcept            = delete;
+    ShutdownManager& operator=(ShutdownManager&&) noexcept = delete;
+
     /// request shutdown with specified reason
     virtual void request_shutdown(shutdown_reason reason) = 0;
 };
@@ -31,7 +37,7 @@ ShutdownManager* set_shutdown_manager(ShutdownManager* mgr);
 /// get current shutdown manager
 ShutdownManager* shutdown_manager();
 
-/// request shutdown from any context
+/// request cooperative shutdown from any context
 /// note: defers work to system work queue for thread safety
 void request_shutdown(shutdown_reason reason);
 
