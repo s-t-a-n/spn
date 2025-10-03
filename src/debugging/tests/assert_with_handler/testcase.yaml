@@ -1,0 +1,6 @@
+common:
+  tags: spn debugging
+  integration_platforms:
+    - native_sim
+tests:
+  spn.debugging.assert_with_handler.unit: { }

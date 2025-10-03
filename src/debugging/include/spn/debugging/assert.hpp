@@ -24,6 +24,9 @@ assert_handler_f spn_assert_handler();
 expect_handler_f spn_expect_handler();
 #endif
 
+void __spn_log_expect_failure(const char* condition, const char* file, int line);
+void __spn_log_assert_failure(const char* condition, const char* file, int line);
+
 } // namespace spn::debugging
 
 #if CONFIG_SPN_ASSERT_LEVEL > 0
@@ -35,8 +38,10 @@ expect_handler_f spn_expect_handler();
                     auto handler = spn::debugging::spn_assert_handler();                                               \
                     if (handler) {                                                                                     \
                         handler(__FILE__, __LINE__, #condition, "Assertion failed");                                   \
-                    } else {                                                                                           \
+                    } else if (IS_ENABLED(CONFIG_ASSERT)) {                                                            \
                         __ASSERT(condition, "spn_assert failed: %s", #condition);                                      \
+                    } else {                                                                                           \
+                        spn::debugging::__spn_log_assert_failure(#condition, __FILE__, __LINE__);                      \
                     }                                                                                                  \
                 }                                                                                                      \
             } while (0)
@@ -48,7 +53,7 @@ expect_handler_f spn_expect_handler();
                     if (handler) {                                                                                     \
                         handler(__FILE__, __LINE__, #condition, "Expectation failed");                                 \
                     } else {                                                                                           \
-                        MLOG_WRN(spn_debugging, "spn_expect failed: %s at %s:%d", #condition, __FILE__, __LINE__);     \
+                        spn::debugging::__spn_log_expect_failure(#condition, __FILE__, __LINE__);                      \
                     }                                                                                                  \
                 }                                                                                                      \
             } while (0)
@@ -58,7 +63,7 @@ expect_handler_f spn_expect_handler();
 #        define spn_expect(condition)                                                                                  \
             do {                                                                                                       \
                 if (!(condition)) {                                                                                    \
-                    MLOG_WRN(spn_debugging, "spn_expect failed: %s at %s:%d", #condition, __FILE__, __LINE__);         \
+                    spn::debugging::__spn_log_expect_failure(#condition, __FILE__, __LINE__);                          \
                 }                                                                                                      \
             } while (0)
 #    endif

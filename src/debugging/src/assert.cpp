@@ -1,7 +1,5 @@
 #include <spn/debugging/assert.hpp>
 
-LOG_MODULE_REGISTER(spn_debugging);
-
 namespace spn::debugging {
 
 #ifdef CONFIG_SPN_ASSERT_HANDLER

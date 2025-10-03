@@ -5,10 +5,12 @@ target_include_directories(spn_debugging PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/include
 )
 
-zephyr_library_sources(
+target_sources(spn_debugging PRIVATE
         src/assert.cpp
+        src/expect_logger.cpp
+        src/assert_logger.cpp
 )
 
-zephyr_link_libraries(
+target_link_libraries(spn_debugging PUBLIC
         spn::logging
 )
