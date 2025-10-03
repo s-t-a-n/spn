@@ -1,5 +1,6 @@
 #include "spn/threading/thread.hpp"
 
+#include <errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/ztest.h>
 
@@ -55,11 +56,46 @@ void thread_delegate(ThreadHarness* harness, spn::ThreadState state) {
     }
 }
 
+struct StepPacing : spn::threading::IPacingStrategy {
+    StepPacing() {
+        k_sem_init(&wait_sem, 0, 1);
+        k_sem_init(&after_sem, 0, 1);
+        k_sem_init(&wait_entered_sem, 0, 1);
+        drain();
+    }
+
+    void on_enter_running() override { drain(); }
+
+    void on_exit_running() override { k_sem_give(&wait_sem); }
+
+    void wait() override {
+        k_sem_give(&wait_entered_sem);
+        k_sem_take(&wait_sem, K_FOREVER);
+    }
+
+    void after_iteration() override { k_sem_give(&after_sem); }
+
+    void interrupt() override { k_sem_give(&wait_sem); }
+
+    void drain() {
+        while (k_sem_take(&wait_sem, K_NO_WAIT) == 0) {
+        }
+        while (k_sem_take(&after_sem, K_NO_WAIT) == 0) {
+        }
+        while (k_sem_take(&wait_entered_sem, K_NO_WAIT) == 0) {
+        }
+    }
+
+    k_sem wait_sem;
+    k_sem after_sem;
+    k_sem wait_entered_sem;
+};
+
 using TestThread = spn::Thread<1024, ThreadHarness>;
 
 } // namespace
 
-ZTEST(thread_suite, thread_start_transitions_to_running) {
+ZTEST(thread_suite, test_thread_start_transitions_to_running) {
     ThreadHarness harness{};
     init_harness(harness);
 
@@ -81,7 +117,7 @@ ZTEST(thread_suite, thread_start_transitions_to_running) {
     zassert_ok(thread.stop(TestTimeout), "thread stop on stopped thread is successful no-op");
 }
 
-ZTEST(thread_suite, thread_pause_and_resume_transitions) {
+ZTEST(thread_suite, test_thread_pause_and_resume_transitions) {
     ThreadHarness harness{};
     init_harness(harness);
 
@@ -106,7 +142,7 @@ ZTEST(thread_suite, thread_pause_and_resume_transitions) {
     zassert_ok(k_sem_take(&harness.stopping, TestTimeout), "thread should report stopping");
 }
 
-ZTEST(thread_suite, thread_start_or_resume_handles_states) {
+ZTEST(thread_suite, test_thread_start_or_resume_handles_states) {
     ThreadHarness harness{};
     init_harness(harness);
 
@@ -114,6 +150,7 @@ ZTEST(thread_suite, thread_start_or_resume_handles_states) {
     TestThread thread(delegate, &harness, 5, "thread_start_or_resume");
 
     zassert_ok(thread.start_or_resume());
+
     zassert_ok(k_sem_take(&harness.started, TestTimeout), "thread should report starting");
     zassert_ok(k_sem_take(&harness.running, TestTimeout), "thread should report running");
     zassert_equal(thread.start_or_resume(), -EINVAL, "start_or_resume while running should fail");
@@ -131,7 +168,7 @@ ZTEST(thread_suite, thread_start_or_resume_handles_states) {
     zassert_ok(k_sem_take(&harness.stopping, TestTimeout), "thread should report stopping");
 }
 
-ZTEST(thread_suite, thread_adjust_priority_updates_value) {
+ZTEST(thread_suite, test_thread_adjust_priority_updates_value) {
     // note: this doesnt really test whether priority is actually reflected. but i reckon that is a bit overkil to test,
     // since the api backing Thread is actually tested.
 
@@ -154,7 +191,7 @@ ZTEST(thread_suite, thread_adjust_priority_updates_value) {
     zassert_ok(k_sem_take(&harness.stopping, TestTimeout), "thread should report stopping");
 }
 
-ZTEST(thread_suite, thread_stop_handles_all_states) {
+ZTEST(thread_suite, test_thread_stop_handles_all_states) {
     ThreadHarness harness{};
     init_harness(harness);
 
@@ -171,7 +208,7 @@ ZTEST(thread_suite, thread_stop_handles_all_states) {
     zassert_equal(thread.state(), spn::ThreadState::STOPPED, "thread should remain STOPPED");
 }
 
-ZTEST(thread_suite, thread_stop_from_paused_state) {
+ZTEST(thread_suite, test_thread_stop_from_paused_state) {
     ThreadHarness harness{};
     init_harness(harness);
 
@@ -190,4 +227,34 @@ ZTEST(thread_suite, thread_stop_from_paused_state) {
     zassert_ok(thread.stop(TestTimeout), "stop() from PAUSED should succeed");
     zassert_ok(k_sem_take(&harness.stopping, TestTimeout), "thread should report stopping");
     zassert_equal(thread.state(), spn::ThreadState::STOPPED, "thread should be stopped");
+}
+
+ZTEST(thread_suite, test_thread_respects_custom_pacing_strategy) {
+    ThreadHarness harness{};
+    init_harness(harness);
+
+    StepPacing pacing{};
+
+    auto       delegate = TestThread::Delegate::create<thread_delegate>();
+    TestThread thread(delegate, &harness, 5, "thread_step_pacing", pacing);
+
+    zassert_equal(
+        &thread.pacing_strategy(),
+        static_cast<spn::threading::IPacingStrategy*>(&pacing),
+        "thread should use custom pacing"
+    );
+
+    zassert_ok(thread.start());
+    zassert_ok(k_sem_take(&harness.started, TestTimeout), "thread should report starting");
+
+    zassert_ok(k_sem_take(&pacing.wait_entered_sem, TestTimeout), "pacing should block before release");
+    zassert_equal(k_sem_take(&harness.running, K_NO_WAIT), -EBUSY, "delegate should not run before pacing release");
+
+    k_sem_give(&pacing.wait_sem);
+
+    zassert_ok(k_sem_take(&harness.running, TestTimeout), "delegate should run after pacing release");
+    zassert_ok(k_sem_take(&pacing.after_sem, TestTimeout), "pacing should record iteration");
+
+    zassert_ok(thread.stop(TestTimeout));
+    zassert_ok(k_sem_take(&harness.stopping, TestTimeout), "thread should report stopping");
 }

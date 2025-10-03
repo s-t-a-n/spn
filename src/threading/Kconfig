@@ -4,6 +4,7 @@ config SPN_THREADING
     select SPN_CORE
     select SPN_DEBUGGING
     select SPN_LOGGING
+    select SPN_TIMING
     select ETL
     select EVENTS
     default n

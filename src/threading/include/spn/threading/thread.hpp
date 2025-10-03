@@ -5,9 +5,13 @@
 #include "spn/debugging/assert.hpp"
 #include "spn/logging/logging.hpp"
 #include "spn/threading/mutex.hpp"
+#include "spn/threading/pacing/pacing_strategy.hpp"
+#include "spn/threading/pacing/spin_pacing.hpp"
 
 #include <etl/delegate.h>
 #include <zephyr/kernel.h>
+
+#include <cerrno>
 
 namespace spn {
 
@@ -26,7 +30,7 @@ enum class ThreadState : uint32_t {
 };
 
 /// Convert thread state to string
-constexpr const char* as_string(ThreadState state) noexcept {
+constexpr const char* to_string(ThreadState state) noexcept {
     switch (state) {
     case ThreadState::IDLE: return "IDLE";
     case ThreadState::STARTING: return "STARTING";
@@ -47,8 +51,15 @@ class Thread {
 public:
     using Delegate = etl::delegate<void(ArgT* arg, ThreadState state)>;
 
-    Thread(Delegate delegate, ArgT* arg, int priority = 10, const char* name = nullptr)
-        : _thread{}, _thread_stack{}, _thread_priority(priority), _delegate(delegate), _arg(arg), _ev{} {
+    Thread(
+        Delegate                    delegate,
+        ArgT*                       arg,
+        int                         priority = 10,
+        const char*                 name     = nullptr,
+        threading::IPacingStrategy& pacing   = threading::SpinPacing::instance()
+    )
+        : _thread{}, _thread_stack{}, _thread_priority(priority), _delegate(delegate), _arg(arg), _pacing(&pacing),
+          _pacing_active(false), _ev{} {
         k_event_init(&_ev);
         k_event_set(&_ev, U32(ThreadState::IDLE));
 
@@ -56,7 +67,7 @@ public:
             &_thread,
             _thread_stack,
             K_THREAD_STACK_SIZEOF(_thread_stack),
-            _thread_entry,
+            thread_entry,
             this,
             arg,
             &_ev,
@@ -99,6 +110,36 @@ public:
         return -EINVAL;
     }
 
+    /// Set pacing strategy when the thread is idle, paused, or halted
+    /// note: returns -EBUSY if the thread is running or transitioning
+    [[nodiscard]] int set_pacing_strategy(threading::IPacingStrategy& pacing) {
+        auto lockguard = _mutex.lockguard();
+
+        auto flags = k_event_test(&_ev, U32(ThreadState::MASK_STATE));
+        if (flags
+            & U32(
+                ThreadState::RUNNING | ThreadState::STARTING | ThreadState::RESUMING | ThreadState::PAUSING
+                | ThreadState::STOPPING
+            )) {
+            return -EBUSY;
+        }
+
+        _pacing = &pacing;
+        return 0;
+    }
+
+    /// Returns the pacing strategy currently associated with the thread
+    threading::IPacingStrategy& pacing_strategy() {
+        auto lockguard = _mutex.lockguard();
+        return *_pacing;
+    }
+
+    /// Returns the pacing strategy currently associated with the thread
+    const threading::IPacingStrategy& pacing_strategy() const {
+        auto lockguard = _mutex.lockguard();
+        return *_pacing;
+    }
+
     /// Start idle thread or resume paused thread
     [[nodiscard]] int start_or_resume() {
         auto lockguard = _mutex.lockguard();
@@ -120,6 +161,13 @@ public:
         if (flags != U32(ThreadState::RUNNING)) return -EINVAL;
 
         k_event_set_masked(&_ev, U32(ThreadState::PAUSING), U32(ThreadState::MASK_STATE));
+
+        interrupt_pacing();
+
+        // avoid deadlock if delegate calls pause() on itself
+        if (k_current_get() == &_thread) {
+            return 0;
+        }
 
         flags = k_event_wait(&_ev, U32(ThreadState::PAUSED), false, timeout);
 
@@ -149,8 +197,12 @@ public:
             return 0;
         }
 
-        if (flags & U32(ThreadState::RUNNING | ThreadState::PAUSED)) {
-            k_event_set_masked(&_ev, U32(ThreadState::STOPPING), U32(ThreadState::MASK_STATE));
+        k_event_set_masked(&_ev, U32(ThreadState::STOPPING), U32(ThreadState::MASK_STATE));
+        interrupt_pacing();
+
+        // avoid deadlock if delegate calls stop() on itself
+        if (k_current_get() == &_thread) {
+            return 0;
         }
 
         flags = k_event_wait(&_ev, U32(ThreadState::STOPPED), false, timeout);
@@ -191,7 +243,25 @@ public:
     }
 
 private:
-    static void _thread_entry(void* thread_v, void* argument_v, void* event_v) {
+    void activate_pacing() {
+        if (_pacing_active) return;
+        _pacing->on_enter_running();
+        _pacing_active = true;
+    }
+
+    void deactivate_pacing() {
+        if (!_pacing_active) return;
+        _pacing->on_exit_running();
+        _pacing_active = false;
+    }
+
+    void interrupt_pacing() {
+        if (_pacing == nullptr) return;
+        _pacing->interrupt();
+        k_wakeup(&_thread);
+    }
+
+    static void thread_entry(void* thread_v, void* argument_v, void* event_v) {
         auto* thread_obj = static_cast<Thread*>(thread_v);
         auto* arg        = static_cast<ArgT*>(argument_v);
         auto* event      = static_cast<k_event*>(event_v);
@@ -206,6 +276,7 @@ private:
 
         delegate(arg, ThreadState::STARTING);
         k_event_set_masked(event, U32(ThreadState::RUNNING), U32(ThreadState::MASK_STATE));
+        thread_obj->activate_pacing();
 
         while (k_event_test(event, U32(ThreadState::MASK_STATE)) != U32(ThreadState::STOPPING)) {
             auto flags = k_event_wait(
@@ -215,24 +286,34 @@ private:
                 K_FOREVER
             );
 
-            if (flags == U32(ThreadState::STOPPING)) break;
+            if (flags == U32(ThreadState::STOPPING)) {
+                thread_obj->deactivate_pacing();
+                break;
+            }
 
             if (flags == U32(ThreadState::RESUMING)) {
                 delegate(arg, ThreadState::RESUMING);
                 k_event_set_masked(event, U32(ThreadState::RUNNING), U32(ThreadState::MASK_STATE));
+                thread_obj->activate_pacing();
             };
 
             while (k_event_test(event, U32(ThreadState::MASK_STATE)) == U32(ThreadState::RUNNING)) {
+                thread_obj->_pacing->wait();
                 delegate(arg, ThreadState::RUNNING);
-                k_yield(); // TODO: investigate various options for handling busy loops. like, yield on a deadline
+                thread_obj->_pacing->after_iteration();
             }
 
-            if (k_event_test(event, U32(ThreadState::MASK_STATE)) == U32(ThreadState::PAUSING)) {
+            auto current_state = k_event_test(event, U32(ThreadState::MASK_STATE));
+            if (current_state == U32(ThreadState::PAUSING)) {
+                thread_obj->deactivate_pacing();
                 delegate(arg, ThreadState::PAUSING);
                 k_event_set_masked(event, U32(ThreadState::PAUSED), U32(ThreadState::MASK_STATE));
+            } else if (current_state == U32(ThreadState::STOPPING)) {
+                thread_obj->deactivate_pacing();
             }
         }
 
+        thread_obj->deactivate_pacing();
         delegate(arg, ThreadState::STOPPING);
 
         k_event_set_masked(event, U32(ThreadState::STOPPED), U32(ThreadState::MASK_STATE));
@@ -250,8 +331,11 @@ private:
     Delegate _delegate;
     ArgT*    _arg;
 
-    k_event _ev;
-    Mutex   _mutex;
+    threading::IPacingStrategy* _pacing;
+    bool                        _pacing_active;
+
+    k_event       _ev;
+    mutable Mutex _mutex;
 };
 
 } // namespace spn
