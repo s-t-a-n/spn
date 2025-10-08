@@ -1,125 +1,180 @@
 #pragma once
 
-#include "spn/logging/logging.hpp"
+#include "spn/allocation/detail/allocator.hpp"
+#include "spn/allocation/detail/deleter.hpp"
 
 #include <etl/atomic.h>
+#include <etl/memory.h>
+#include <etl/type_traits.h>
+#include <etl/utility.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/barrier.h>
+
+// The class rationale is to provide an analogue to std::shared_pointer tailored for refcounted heap/slab use
+// The problems of using refcounting on embedded are obvious performance wise, but the safety and origin erasure sure
+// can cure a lot of problems!
 
 namespace spn {
 
-/// Allocator concept for heap-like interfaces
-template<typename T>
-concept HeapLike = requires(T b, void* ptr, size_t bytes) {
-    { b.alloc(&ptr, bytes) } -> std::convertible_to<int>;
-    { b.release(&ptr) } -> std::convertible_to<void>;
+namespace detail {
+
+/// Shared control block. Manages refcount and deletion of object and control block
+class SharedControlBlock {
+public:
+    /// Construct control block with object pointer and deletion handlers
+    SharedControlBlock(void* ptr, Deleter<void> obj_del, Deleter<void> ctrl_del) noexcept
+        : _ptr(ptr), _object_deleter(obj_del), _control_deleter(ctrl_del) {}
+
+    /// Increment reference count
+    void add_ref() noexcept { _refcount.fetch_add(1, etl::memory_order_relaxed); }
+
+    /// Decrement reference count. Returns previous count before decrement
+    size_t dec_ref() noexcept { return _refcount.fetch_sub(1, etl::memory_order_release); }
+
+    /// Returns current reference count
+    size_t ref_count() const noexcept { return _refcount.load(etl::memory_order_acquire); }
+
+    /// Destroy managed object and control block using stored deleters
+    void destroy() noexcept {
+        const auto object  = _object_deleter;
+        const auto control = _control_deleter;
+        void*      ptr     = _ptr;
+
+        _ptr             = nullptr;
+        _object_deleter  = {};
+        _control_deleter = {};
+        _refcount.store(0, etl::memory_order_relaxed);
+
+        if (ptr != nullptr && object.function() != nullptr) object(ptr);
+        if (control.function() != nullptr) control(this);
+    }
+
+    ~SharedControlBlock() = default;
+
+    SharedControlBlock(const SharedControlBlock&)            = delete;
+    SharedControlBlock& operator=(const SharedControlBlock&) = delete;
+    SharedControlBlock(SharedControlBlock&&)                 = delete;
+    SharedControlBlock& operator=(SharedControlBlock&&)      = delete;
+
+private:
+    etl::atomic<size_t> _refcount{1};
+    void*               _ptr{nullptr};
+    Deleter<void>       _object_deleter{};
+    Deleter<void>       _control_deleter{};
 };
 
-// note: written since ETL doesnt provide shared_ptr or similar mechanicry
+} // namespace detail
 
-/// Reference-counted smart pointer with custom allocator
-template<typename T, HeapLike PoolType>
-class SharedPtr {
+/// Control block storage type for allocating shared_ptr control blocks
+using ControlBlockStorage = detail::SharedControlBlock;
+
+/// Reference-counted smart pointer
+template<typename T>
+class shared_ptr {
 public:
-    using underlying_t = T;
-    using pool_t       = PoolType;
-    using refcount_t   = etl::atomic<size_t>;
+    using element_type = T;
+    using pointer      = T*;
+    using reference    = T&;
 
-    /// Control block for reference counting
-    struct ControlBlock {
-        pool_t*    _pool;
-        refcount_t _refcount;
-        T          _data;
+    static_assert(!etl::is_array_v<T>, "spn::shared_ptr does not support array types");
 
-        template<typename... Args>
-        explicit ControlBlock(pool_t* pool, Args&&... args)
-            : _pool(pool), _refcount(1), _data(std::forward<Args>(args)...) {}
-    };
+    constexpr shared_ptr() noexcept = default;
 
-    struct Static {};
+    shared_ptr(detail::SharedControlBlock* control, pointer p) noexcept : _ptr(p), _control(control) {}
 
-    SharedPtr() noexcept = default;
+    shared_ptr(const shared_ptr& other) noexcept : _ptr(other._ptr), _control(other._control) { add_ref(); }
 
-    explicit SharedPtr(pool_t& pool) : _control(allocate_and_construct(pool)) {}
+    shared_ptr(shared_ptr&& other) noexcept : _ptr(other._ptr), _control(other._control) {
+        other._ptr     = nullptr;
+        other._control = nullptr;
+    }
 
-    template<typename... Args>
-    requires std::constructible_from<T, Args...> SharedPtr(pool_t& pool, std::in_place_t, Args&&... args)
-        : _control(allocate_and_construct(pool, std::forward<Args>(args)...)) {}
-
-    SharedPtr(const SharedPtr& other) noexcept : _control(other._control) { add_ref(); }
-
-    SharedPtr(SharedPtr&& other) noexcept : _control(other._control) { other._control = nullptr; }
-
-    template<typename... Args>
-    requires std::constructible_from<T, Args...> SharedPtr(ControlBlock* other_cb, Args&&... args)
-    noexcept : _control(other_cb) {
-        _control->_data = {std::forward<Args>(args)...};
+    template<typename U>
+        requires(etl::is_convertible_v<U*, T*>)
+    shared_ptr(const shared_ptr<U>& other) noexcept : _ptr(static_cast<pointer>(other._ptr)), _control(other._control) {
         add_ref();
     }
 
-    ~SharedPtr() { release(); }
+    template<typename U>
+        requires(etl::is_convertible_v<U*, T*>)
+    shared_ptr(shared_ptr<U>&& other) noexcept : _ptr(static_cast<pointer>(other._ptr)), _control(other._control) {
+        other._ptr     = nullptr;
+        other._control = nullptr;
+    }
 
-    SharedPtr& operator=(const SharedPtr& other) noexcept {
-        if (this == &other) return *this;
+    ~shared_ptr() { dec_ref(); }
+
+    shared_ptr& operator=(const shared_ptr& other) noexcept {
+        if (this == &other || _control == other._control) return *this;
         if (other._control) inc(other._control);
-        release();
+        dec_ref();
+        _ptr     = other._ptr;
         _control = other._control;
         return *this;
     }
 
-    SharedPtr& operator=(SharedPtr&& other) noexcept {
+    shared_ptr& operator=(shared_ptr&& other) noexcept {
         if (this == &other) return *this;
-        release();
+        dec_ref();
+        _ptr           = other._ptr;
         _control       = other._control;
+        other._ptr     = nullptr;
         other._control = nullptr;
         return *this;
     }
 
-    /// Get pointer to managed object
-    T*       get() noexcept { return _control ? std::addressof(_control->_data) : nullptr; }
-    const T* get() const noexcept { return _control ? std::addressof(_control->_data) : nullptr; }
+    template<typename U>
+        requires(etl::is_convertible_v<U*, T*>)
+    shared_ptr& operator=(const shared_ptr<U>& other) noexcept {
+        if (_control == other._control) return *this;
+        if (other._control) inc(other._control);
+        dec_ref();
+        _ptr     = static_cast<pointer>(other._ptr);
+        _control = other._control;
+        return *this;
+    }
 
-    /// Dereference managed object
-    T&       operator*() noexcept { return _control->_data; }
-    const T& operator*() const noexcept { return _control->_data; }
+    template<typename U>
+        requires(etl::is_convertible_v<U*, T*>)
+    shared_ptr& operator=(shared_ptr<U>&& other) noexcept {
+        dec_ref();
+        _ptr           = static_cast<pointer>(other._ptr);
+        _control       = other._control;
+        other._ptr     = nullptr;
+        other._control = nullptr;
+        return *this;
+    }
 
-    /// Access managed object member
-    T*       operator->() noexcept { return std::addressof(_control->_data); }
-    const T* operator->() const noexcept { return std::addressof(_control->_data); }
+    shared_ptr& operator=(etl::nullptr_t) noexcept {
+        reset();
+        return *this;
+    }
 
-    /// Check if pointer is not null
+    pointer get() const noexcept { return _ptr; }
+
+    reference operator*() const noexcept { return *get(); }
+
+    pointer operator->() const noexcept { return get(); }
+
+    /// Returns true if shared_ptr manages an object
     explicit operator bool() const noexcept { return _control != nullptr; }
 
-    /// Get reference count
-    std::size_t use_count() const noexcept {
-        if (!_control) return 0;
-        return _control->_refcount.load(std::memory_order_acquire);
-    }
+    /// Returns number of shared_ptr instances sharing ownership. Returns 0 if empty
+    size_t use_count() const noexcept { return _control ? _control->ref_count() : 0; }
 
-    /// Check if this is the only reference
+    /// Returns true if this is the only shared_ptr managing the object
     bool unique() const noexcept { return use_count() == 1; }
 
-    /// Reset to empty state
-    void reset() noexcept { release(); }
+    void reset() noexcept { dec_ref(); }
+    void reset(etl::nullptr_t) noexcept { reset(); }
 
-    /// Reset with new object
-    template<typename... Args>
-    requires std::constructible_from<T, Args...>
-    void reset(pool_t& pool, Args&&... args) {
-        release();
-        _control = allocate_and_construct(pool, std::forward<Args>(args)...);
-    }
-
-    /// Swap with another shared pointer
-    void swap(SharedPtr& other) noexcept {
-        auto* tmp      = _control;
-        _control       = other._control;
-        other._control = tmp;
-    }
-
-    /// Create external static control blocks
-    template<typename... Args>
-    static ControlBlock make_control_block(Args&&... args) {
-        return construct(std::forward<Args>(args)...);
+    void swap(shared_ptr& other) noexcept {
+        pointer                     tmp_ptr  = _ptr;
+        detail::SharedControlBlock* tmp_ctrl = _control;
+        _ptr                                 = other._ptr;
+        _control                             = other._control;
+        other._ptr                           = tmp_ptr;
+        other._control                       = tmp_ctrl;
     }
 
 private:
@@ -127,60 +182,73 @@ private:
         if (_control) inc(_control);
     }
 
-    static void inc(ControlBlock* c) noexcept {
-        MLOG_INF(spn_allocation, "Increasing shared ptr ref count");
+    static void inc(detail::SharedControlBlock* c) noexcept { c->add_ref(); }
 
-        c->_refcount.fetch_add(1, std::memory_order_relaxed);
-    }
-
-    static bool dec_and_test_zero(ControlBlock* c) noexcept {
-        MLOG_INF(spn_allocation, "Decreasing shared ptr ref count");
-        return c->_refcount.fetch_sub(1, std::memory_order_acq_rel) == 1;
-    }
-
-    void release() noexcept {
-        auto* c = _control;
-        if (!c) return;
-        _control = nullptr;
-        if (dec_and_test_zero(c)) {
-            c->_data.~T();
-            auto* pool = c->_pool;
-            c->~ControlBlock();
-            if (pool) pool->release(static_cast<void*>(c));
-            MLOG_INF(spn_allocation, "Releasing shared ptr");
+    void dec_ref() noexcept {
+        if (!_control) return;
+        detail::SharedControlBlock* control = _control;
+        _ptr                                = nullptr;
+        _control                            = nullptr;
+        if (control->dec_ref() == 1) {
+            // barrier ensures destructor sees all previous writes to control_block
+            barrier_dmem_fence_full();
+            control->destroy();
         }
     }
 
-    template<typename... Args>
-    static ControlBlock* allocate_and_construct(pool_t& pool, Args&&... args) {
-        void* raw{};
-        if (pool.alloc_aligned(&raw, alignof(ControlBlock), sizeof(ControlBlock)) != 0) return nullptr;
-        return new (raw) ControlBlock(&pool, std::forward<Args>(args)...);
-    }
+    template<typename U>
+    friend class shared_ptr;
 
-    template<typename... Args>
-    static ControlBlock construct(Args&&... args) {
-        return ControlBlock(nullptr, std::forward<Args>(args)...);
-    }
-
-private:
-    ControlBlock* _control{nullptr};
+    pointer                     _ptr{nullptr};
+    detail::SharedControlBlock* _control{nullptr};
 };
 
-/// Allocate new shared pointer
-template<typename T, HeapLike PoolType, typename... Args>
-auto make_shared_ptr(PoolType& pool, Args&&... args) -> SharedPtr<T, PoolType> {
-    return SharedPtr<T, PoolType>(pool, std::in_place, std::forward<Args>(args)...);
+template<typename T, typename U>
+bool operator==(const shared_ptr<T>& lhs, const shared_ptr<U>& rhs) noexcept {
+    return lhs.get() == rhs.get();
 }
 
-/// Reuse control block or allocate new
-/// note: not thread-safe
-template<typename T, HeapLike PoolType, typename... Args>
-auto reuse_or_realloc(typename SharedPtr<T, PoolType>::ControlBlock* ext_cb, PoolType& pool, Args&&... args)
-    -> SharedPtr<T, PoolType> {
-    if (ext_cb->_refcount.load(std::memory_order_acquire) == 1)
-        return SharedPtr<T, PoolType>(ext_cb, std::forward<Args>(args)...);
-    return make_shared_ptr<T, PoolType>(pool, std::forward<Args>(args)...);
+template<typename T>
+bool operator==(const shared_ptr<T>& lhs, etl::nullptr_t) noexcept {
+    return !lhs;
+}
+
+template<typename T>
+bool operator==(etl::nullptr_t, const shared_ptr<T>& rhs) noexcept {
+    return !rhs;
+}
+
+/// Create shared_ptr with object and control block storage. Returns empty shared_ptr on allocation failure or timeout
+template<typename T, typename ObjStorage, typename CtrlStorage, typename... Args>
+shared_ptr<T> make_shared(ObjStorage& obj_storage, CtrlStorage& ctrl_storage, k_timeout_t timeout, Args&&... args) {
+    auto  obj_alloc = obj_storage.template allocator<T>();
+    void* obj_raw   = nullptr;
+    if (obj_alloc.allocate(&obj_raw, timeout) != 0) {
+        return {};
+    }
+    T* obj = etl::construct_at(static_cast<T*>(obj_raw), etl::forward<Args>(args)...);
+
+    auto obj_deleter_typed = obj_storage.template deleter<T>();
+    auto obj_del           = detail::Deleter<void>(obj_deleter_typed.context(), obj_deleter_typed.function());
+
+    auto  ctrl_alloc = ctrl_storage.template allocator<detail::SharedControlBlock>();
+    void* ctrl_raw   = nullptr;
+    if (ctrl_alloc.allocate(&ctrl_raw, timeout) != 0) {
+        obj_deleter_typed(obj);
+        return {};
+    }
+
+    auto ctrl_deleter_typed = ctrl_storage.template deleter<detail::SharedControlBlock>();
+    auto ctrl_del           = detail::Deleter<void>(ctrl_deleter_typed.context(), ctrl_deleter_typed.function());
+
+    auto* ctrl = etl::construct_at(
+        static_cast<detail::SharedControlBlock*>(ctrl_raw),
+        const_cast<void*>(static_cast<const void*>(obj)),
+        obj_del,
+        ctrl_del
+    );
+
+    return shared_ptr<T>(ctrl, obj);
 }
 
 } // namespace spn

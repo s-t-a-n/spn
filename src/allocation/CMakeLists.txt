@@ -5,7 +5,7 @@ target_include_directories(spn_allocation PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/include
 )
 
-zephyr_library_sources(
+target_sources(spn_allocation PRIVATE
         src/logging.cpp
 )
 

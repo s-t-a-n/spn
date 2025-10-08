@@ -1,40 +1,27 @@
 #pragma once
 
-#include "spn/allocation/heap.hpp"
+#include "spn/allocation/detail/allocator.hpp"
+#include "spn/allocation/detail/deleter.hpp"
 
 #include <etl/memory.h>
+#include <etl/utility.h>
 
 namespace spn {
 
-/// Heap deleter for unique_ptr
+/// Unique_ptr with origin-erased deleter that can return objects to their source allocator
 template<typename T>
-struct HeapDeleter {
-    IHeap* _heap{};
-    void   operator()(T* p) const noexcept {
-          if (!p || _heap == nullptr) return;
-        _heap->destroy(p);
-    }
-};
+using unique_ptr = etl::unique_ptr<T, detail::Deleter<T>>;
 
-template<typename T>
-using unique_ptr = etl::unique_ptr<T, HeapDeleter<T>>;
+/// Allocate and construct object. Returns empty unique_ptr on allocation failure or timeout
+template<typename T, typename Storage, typename... Args>
+unique_ptr<T> make_unique(Storage& storage, k_timeout_t timeout, Args&&... args) {
+    auto  alloc = storage.template allocator<T>();
+    void* raw   = nullptr;
 
-/// Array specialization of heap deleter
-template<typename T>
-struct HeapDeleter<T[]> {
-    IHeap* _heap{};
-    void   operator()(T* p) const noexcept {
-          if (!p || _heap == nullptr) return;
-        _heap->release(p); // raw memory release for arrays
-    }
-};
+    if (alloc.allocate(&raw, timeout) != 0) return {};
+    T* obj = etl::construct_at(static_cast<T*>(raw), etl::forward<Args>(args)...);
 
-/// Create unique pointer with heap allocation
-template<typename T, typename... Args>
-unique_ptr<T> make_unique_ptr(IHeap& heap, Args&&... args) {
-    T* p = nullptr;
-    if (heap.emplace<T>(&p, static_cast<Args&&>(args)...) != 0) return unique_ptr<T>(nullptr, HeapDeleter<T>{&heap});
-    return unique_ptr<T>(p, HeapDeleter<T>{&heap});
+    return unique_ptr<T>(obj, storage.template deleter<T>());
 }
 
 } // namespace spn
