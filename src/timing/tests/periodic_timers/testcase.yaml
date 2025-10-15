@@ -1,0 +1,6 @@
+common:
+  tags: spn timing periodic_timers
+  integration_platforms:
+    - native_sim
+tests:
+  spn.timing.periodic_timers.unit: {}

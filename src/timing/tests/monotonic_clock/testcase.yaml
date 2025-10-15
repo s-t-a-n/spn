@@ -1,0 +1,6 @@
+common:
+  tags: spn timing monotonic_clock
+  integration_platforms:
+    - native_sim
+tests:
+  spn.timing.monotonic_clock.unit: {}

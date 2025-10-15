@@ -1,0 +1,7 @@
+config SPN_TIMING
+    bool "Enable SPN timing library"
+    select SPN_CORE
+    select ETL
+    default n
+    help
+      Enable the SPN timing library for elapsed time measurement and timing utilities

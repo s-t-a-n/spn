@@ -1,0 +1,6 @@
+common:
+  tags: spn timing rate_control
+  integration_platforms:
+    - native_sim
+tests:
+  spn.timing.rate_control.unit: {}
