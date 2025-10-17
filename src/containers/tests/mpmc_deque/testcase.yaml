@@ -1,0 +1,6 @@
+common:
+  tags: spn containers mpmc_deque
+  integration_platforms:
+    - native_sim
+tests:
+  spn.containers.mpmc_deque.unit: {}

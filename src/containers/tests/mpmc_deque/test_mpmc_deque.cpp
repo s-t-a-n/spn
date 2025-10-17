@@ -521,8 +521,24 @@ ZTEST(mpmc_deque_suite, test_concurrent_producer_consumer) {
 
     launch_producer_back(&producer_thread1, producer_stack1, &prod_ctx1, &deque, 0, ItemsPerProducer, &prod_done1);
     launch_producer_back(&producer_thread2, producer_stack2, &prod_ctx2, &deque, 100, ItemsPerProducer, &prod_done2);
-    launch_consumer_front(&consumer_thread1, consumer_stack1, &cons_ctx1, &deque, values1, ItemsPerProducer, &cons_done1);
-    launch_consumer_front(&consumer_thread2, consumer_stack2, &cons_ctx2, &deque, values2, ItemsPerProducer, &cons_done2);
+    launch_consumer_front(
+        &consumer_thread1,
+        consumer_stack1,
+        &cons_ctx1,
+        &deque,
+        values1,
+        ItemsPerProducer,
+        &cons_done1
+    );
+    launch_consumer_front(
+        &consumer_thread2,
+        consumer_stack2,
+        &cons_ctx2,
+        &deque,
+        values2,
+        ItemsPerProducer,
+        &cons_done2
+    );
 
     k_sem_take(&prod_done1, K_FOREVER);
     k_sem_take(&prod_done2, K_FOREVER);
