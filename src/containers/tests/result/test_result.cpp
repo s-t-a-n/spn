@@ -1,36 +1,34 @@
 #include "spn/containers/result.hpp"
 
+#include <etl/string.h>
 #include <zephyr/ztest.h>
 
 #include <climits>
 #include <cstdint>
 #include <cstdlib>
-#include <string>
-#include <vector>
 
 using namespace spn;
 
 ZTEST_SUITE(result_suite, NULL, NULL, NULL, NULL, NULL);
 
 namespace {
-using IntResult = Result<int, std::string, int>;
+using IntResult = Result<int, etl::string<64>, int>;
 
 IntResult make_success(int value) { return IntResult(value); }
-IntResult make_failure(const std::string& message) { return IntResult::failed(message); }
-IntResult make_failure(const char* message) { return IntResult::failed(std::string(message)); }
+IntResult make_failure(const etl::string<64>& message) { return IntResult::failed(message); }
+IntResult make_failure(const char* message) { return IntResult::failed(etl::string<64>(message)); }
 IntResult make_intermediary(int value) { return IntResult::intermediary(value); }
 } // namespace
 
-
 ZTEST(result_suite, test_pipeline_with_chain) {
-    using ParseResult = Result<float, std::string, int>;
+    using ParseResult = Result<float, etl::string<64>, int>;
 
-    const auto stage_entry = [](int input) { return ParseResult::intermediary(input); };
+    const auto stage_entry  = [](int input) { return ParseResult::intermediary(input); };
     const auto stage_double = [](int value) -> ParseResult {
         if (value == 0) return ParseResult::failed("value was 0");
         return ParseResult(static_cast<float>(value * 2));
     };
-    const auto stage_error = [](int) { return ParseResult::failed("stage_error"); };
+    const auto stage_error     = [](int) { return ParseResult::failed("stage_error"); };
     const auto stage_increment = [](int value) { return ParseResult::intermediary(value + 1); };
 
     const auto success = stage_entry(5).chain(stage_double);
@@ -45,20 +43,14 @@ ZTEST(result_suite, test_pipeline_with_chain) {
     zassert_true(zero_fail.is_err());
     zassert_str_equal("value was 0", zero_fail.error().c_str());
 
-    const auto multi_intermediate = stage_entry(5)
-        .chain(stage_increment)
-        .chain(stage_increment)
-        .chain(stage_double);
+    const auto multi_intermediate = stage_entry(5).chain(stage_increment).chain(stage_increment).chain(stage_double);
     zassert_true(multi_intermediate.is_ok());
     zassert_equal(14, multi_intermediate.value());
 
-    const auto early_success = ParseResult(42.0f)
-        .chain(stage_error)
-        .chain(stage_double);
+    const auto early_success = ParseResult(42.0f).chain(stage_error).chain(stage_double);
     zassert_true(early_success.is_ok());
     zassert_equal(42, early_success.value());
 }
-
 
 ZTEST(result_suite, test_construction_and_copy) {
     using ResultType = IntResult;
@@ -91,7 +83,7 @@ ZTEST(result_suite, test_construction_and_copy) {
     zassert_true(tagged_ok.is_ok());
     zassert_equal(100, tagged_ok.value());
 
-    ResultType tagged_err(ResultType::err, std::string("tagged error"));
+    ResultType tagged_err(ResultType::err, etl::string<64>("tagged error"));
     zassert_true(tagged_err.is_err());
     zassert_str_equal("tagged error", tagged_err.error().c_str());
 
@@ -122,7 +114,7 @@ ZTEST(result_suite, test_accessors_and_unwrap) {
     zassert_equal(42, unwrapped_success);
     zassert_false(success.is_ok());
 
-    std::string unwrapped_error = failure.unwrap_error();
+    etl::string<64> unwrapped_error = failure.unwrap_error();
     zassert_str_equal("error message", unwrapped_error.c_str());
     zassert_false(failure.is_err());
 
@@ -146,8 +138,8 @@ ZTEST(result_suite, test_accessors_and_unwrap) {
 ZTEST(result_suite, test_transformations) {
     using ResultType = IntResult;
 
-    ResultType success = make_success(10);
-    ResultType failure = make_failure("error");
+    ResultType success      = make_success(10);
+    ResultType failure      = make_failure("error");
     ResultType intermediary = make_intermediary(15);
     ResultType no_value;
 
@@ -163,11 +155,19 @@ ZTEST(result_suite, test_transformations) {
     zassert_true(mapped_intermediary.is_intermediary());
     zassert_equal(15, mapped_intermediary.intermediary_value());
 
-    auto map_error_failure = failure.map_error([](const std::string& err) { return err + " mapped"; });
+    auto map_error_failure = failure.map_error([](const etl::string<64>& err) {
+        auto result = etl::string<64>(err);
+        result.append(" mapped");
+        return result;
+    });
     zassert_true(map_error_failure.is_err());
     zassert_str_equal("error mapped", map_error_failure.error().c_str());
 
-    auto map_error_success = success.map_error([](const std::string& err) { return err + " mapped"; });
+    auto map_error_success = success.map_error([](const etl::string<64>& err) {
+        auto result = etl::string<64>(err);
+        result.append(" mapped");
+        return result;
+    });
     zassert_true(map_error_success.is_ok());
     zassert_equal(10, map_error_success.value());
 
@@ -182,7 +182,11 @@ ZTEST(result_suite, test_transformations) {
     auto map_no_value = no_value.map([](const int& val) { return val * 2; });
     zassert_false(map_no_value.is_ok() || map_no_value.is_err() || map_no_value.is_intermediary());
 
-    auto map_error_no_value = no_value.map_error([](const std::string& err) { return err + " mapped"; });
+    auto map_error_no_value = no_value.map_error([](const etl::string<64>& err) {
+        auto result = etl::string<64>(err);
+        result.append(" mapped");
+        return result;
+    });
     zassert_false(map_error_no_value.is_ok() || map_error_no_value.is_err() || map_error_no_value.is_intermediary());
 
     auto map_inter_no_value = no_value.map_intermediary([](const int& inter) { return inter + 100; });
@@ -211,53 +215,38 @@ ZTEST(result_suite, test_transformations) {
     auto and_then_no_value = no_value.and_then([](const int& val) { return make_success(val * 2); });
     zassert_false(and_then_no_value.is_ok() || and_then_no_value.is_err() || and_then_no_value.is_intermediary());
 
-    auto or_else_failure = failure.or_else([](const std::string& err) { return make_success(42); });
+    auto or_else_failure = failure.or_else([](const etl::string<64>& err) { return make_success(42); });
     zassert_true(or_else_failure.is_ok());
     zassert_equal(42, or_else_failure.value());
 
-    auto or_else_failure_fail = failure.or_else([](const std::string& err) { return make_failure("recovery failed: " + err); });
+    auto or_else_failure_fail = failure.or_else([](const etl::string<64>& err) {
+        auto msg = etl::string<64>("recovery failed: ");
+        msg.append(err);
+        return make_failure(msg);
+    });
     zassert_true(or_else_failure_fail.is_err());
     zassert_str_equal("recovery failed: error", or_else_failure_fail.error().c_str());
 
-    auto or_else_success = success.or_else([](const std::string&) { return make_success(999); });
+    auto or_else_success = success.or_else([](const etl::string<64>&) { return make_success(999); });
     zassert_true(or_else_success.is_ok());
     zassert_equal(10, or_else_success.value());
 
-    auto or_else_intermediate = intermediary.or_else([](const std::string&) { return make_success(999); });
+    auto or_else_intermediate = intermediary.or_else([](const etl::string<64>&) { return make_success(999); });
     zassert_true(or_else_intermediate.is_intermediary());
     zassert_equal(15, or_else_intermediate.intermediary_value());
 
-    auto or_else_no_value = no_value.or_else([](const std::string&) { return make_success(999); });
+    auto or_else_no_value = no_value.or_else([](const etl::string<64>&) { return make_success(999); });
     zassert_false(or_else_no_value.is_ok() || or_else_no_value.is_err() || or_else_no_value.is_intermediary());
 
-    const struct {
-        ResultType result;
-        int fallback;
-        int expected;
-    } value_cases[] = {
-        {make_success(42), 99, 42},
-        {make_failure("error"), 99, 99},
-        {make_intermediary(123), 99, 99},
-        {ResultType{}, 99, 99},
-    };
-    for (const auto& test : value_cases) {
-        zassert_equal(test.expected, test.result.value_or(test.fallback));
-    }
+    zassert_equal(42, make_success(42).value_or(99));
+    zassert_equal(99, make_failure("error").value_or(99));
+    zassert_equal(99, make_intermediary(123).value_or(99));
+    zassert_equal(99, ResultType{}.value_or(99));
 
-    const struct {
-        ResultType result;
-        const char* fallback;
-        const char* expected;
-    } error_cases[] = {
-        {make_failure("error"), "default", "error"},
-        {make_success(42), "default", "default"},
-        {make_intermediary(123), "default", "default"},
-        {ResultType{}, "default", "default"},
-    };
-    for (const auto& test : error_cases) {
-        auto actual = test.result.error_or(test.fallback);
-        zassert_str_equal(test.expected, actual.c_str());
-    }
+    zassert_str_equal("error", make_failure("error").error_or("default").c_str());
+    zassert_str_equal("default", make_success(42).error_or("default").c_str());
+    zassert_str_equal("default", make_intermediary(123).error_or("default").c_str());
+    zassert_str_equal("default", ResultType{}.error_or("default").c_str());
 
     ResultType success_for_literal = make_success(42);
     auto       failure_for_literal = make_failure("error");
@@ -278,27 +267,27 @@ ZTEST(result_suite, test_transformations) {
 ZTEST(result_suite, test_match_and_utilities) {
     using ResultType = IntResult;
 
-    ResultType success = make_success(42);
-    ResultType failure = make_failure("test error");
+    ResultType success      = make_success(42);
+    ResultType failure      = make_failure("test error");
     ResultType intermediary = make_intermediary(15);
 
     auto success_match = success.match(
         [](const int& val) { return val * 2; },
-        [](const std::string&) { return -1; },
+        [](const etl::string<64>&) { return -1; },
         [](const int&) { return -2; }
     );
     zassert_equal(84, success_match);
 
     auto failure_match = failure.match(
         [](const int& val) { return val * 2; },
-        [](const std::string& err) { return static_cast<int>(err.length()); },
+        [](const etl::string<64>& err) { return static_cast<int>(err.length()); },
         [](const int&) { return -2; }
     );
     zassert_equal(10, failure_match);
 
     auto intermediary_match = intermediary.match(
         [](const int& val) { return val * 2; },
-        [](const std::string&) { return -1; },
+        [](const etl::string<64>&) { return -1; },
         [](const int& inter) { return inter + 100; }
     );
     zassert_equal(115, intermediary_match);
@@ -310,7 +299,7 @@ ZTEST(result_suite, test_match_and_utilities) {
 
     auto success_type = success.match(
         [](const int& val) { return MatchResult{MatchResult::SUCCESS, val}; },
-        [](const std::string&) { return MatchResult{MatchResult::FAILED, 0}; },
+        [](const etl::string<64>&) { return MatchResult{MatchResult::FAILED, 0}; },
         [](const int& inter) { return MatchResult{MatchResult::INTERMEDIARY, inter}; }
     );
     zassert_equal(MatchResult::SUCCESS, success_type.type);
@@ -318,7 +307,7 @@ ZTEST(result_suite, test_match_and_utilities) {
 
     auto failure_type = failure.match(
         [](const int& val) { return MatchResult{MatchResult::SUCCESS, val}; },
-        [](const std::string& err) { return MatchResult{MatchResult::FAILED, static_cast<int>(err.length())}; },
+        [](const etl::string<64>& err) { return MatchResult{MatchResult::FAILED, static_cast<int>(err.length())}; },
         [](const int& inter) { return MatchResult{MatchResult::INTERMEDIARY, inter}; }
     );
     zassert_equal(MatchResult::FAILED, failure_type.type);
@@ -326,7 +315,7 @@ ZTEST(result_suite, test_match_and_utilities) {
 
     auto intermediary_type = intermediary.match(
         [](const int& val) { return MatchResult{MatchResult::SUCCESS, val}; },
-        [](const std::string&) { return MatchResult{MatchResult::FAILED, 0}; },
+        [](const etl::string<64>&) { return MatchResult{MatchResult::FAILED, 0}; },
         [](const int& inter) { return MatchResult{MatchResult::INTERMEDIARY, inter}; }
     );
     zassert_equal(MatchResult::INTERMEDIARY, intermediary_type.type);
@@ -335,14 +324,14 @@ ZTEST(result_suite, test_match_and_utilities) {
 
 ZTEST(result_suite, test_operator_arrow) {
     struct TestStruct {
-        int         value;
-        std::string name;
+        int             value;
+        etl::string<64> name;
 
-        int                get_value() const { return value; }
-        const std::string& get_name() const { return name; }
+        int                    get_value() const { return value; }
+        const etl::string<64>& get_name() const { return name; }
     };
 
-    using ResultType = Result<TestStruct, std::string, TestStruct>;
+    using ResultType = Result<TestStruct, etl::string<64>, TestStruct>;
 
     TestStruct test_obj{42, "test"};
     ResultType success_result(test_obj);
@@ -396,7 +385,7 @@ ZTEST(result_suite, test_void_result) {
     zassert_true(mapped_error.is_err());
     zassert_equal(7, mapped_error.error());
 
-    auto intermediary = VoidResult::intermediary(9);
+    auto intermediary       = VoidResult::intermediary(9);
     auto intermediary_chain = intermediary.and_then([]() -> VoidResult { return VoidResult{VoidResult::ok}; });
     zassert_true(intermediary_chain.is_intermediary());
     zassert_equal(9, intermediary_chain.intermediary_value());
@@ -404,8 +393,7 @@ ZTEST(result_suite, test_void_result) {
     auto intermediary_unwrap = intermediary;
     zassert_equal(9, intermediary_unwrap.unwrap_intermediary_value());
 
-    auto matched_value =
-        success.match([]() { return 11; }, [](int) { return 0; }, [](int) { return -1; });
+    auto matched_value = success.match([]() { return 11; }, [](int) { return 0; }, [](int) { return -1; });
     zassert_equal(11, matched_value);
 }
 
@@ -421,7 +409,7 @@ ZTEST(result_suite, test_edge_cases) {
     auto and_then_no_value = no_value.and_then([](const int& val) { return make_success(val * 2); });
     zassert_false(and_then_no_value.is_ok() || and_then_no_value.is_err() || and_then_no_value.is_intermediary());
 
-    auto or_else_no_value = no_value.or_else([](const std::string&) { return make_success(999); });
+    auto or_else_no_value = no_value.or_else([](const etl::string<64>&) { return make_success(999); });
     zassert_false(or_else_no_value.is_ok() || or_else_no_value.is_err() || or_else_no_value.is_intermediary());
 
     auto no_value_fallback = no_value.value_or(123);
@@ -433,10 +421,10 @@ ZTEST(result_suite, test_edge_cases) {
     struct MoveOnly {
         int value;
         MoveOnly(int v) : value(v) {}
-        MoveOnly(const MoveOnly&) = delete;
+        MoveOnly(const MoveOnly&)            = delete;
         MoveOnly& operator=(const MoveOnly&) = delete;
-        MoveOnly(MoveOnly&&) = default;
-        MoveOnly& operator=(MoveOnly&&) = default;
+        MoveOnly(MoveOnly&&)                 = default;
+        MoveOnly& operator=(MoveOnly&&)      = default;
     };
 
     using MoveResult = Result<MoveOnly, int, int>;

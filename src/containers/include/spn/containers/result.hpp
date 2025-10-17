@@ -11,10 +11,13 @@
 
 namespace spn {
 
+// PARTIALLY DEPRECATED: use of etl::result / etl::expected is encouraged
+// Use this Result class for its ability to statefully store intermediary values or for it's syntax
+
 // Only slightly inspired on Rust's Result structure.
 // Kudos to Ryan Lucas @ github.com/rlucas585 for the inspiration
 
-/// container for function-driven processing with safety by default
+/// Container for function-driven processing with safety by default
 template<typename T, typename E = T, typename I = etl::conditional_t<etl::is_void_v<T>, etl::monostate, T>>
 class Result {
 public:
@@ -69,8 +72,7 @@ public:
         return *this;
     }
 
-    /// move assignment taking ownership
-    /// note: leaves other in NO_VALUE state
+    /// Move assignment taking ownership. Leaves other in NO_VALUE state.
     Result& operator=(Result&& other) noexcept {
         if (this != &other) {
             destroy_current();
@@ -85,30 +87,36 @@ public:
     ~Result() { destroy_current(); }
 
     /// construct with success value
-    template<typename U = T, etl::enable_if_t<!etl::is_void_v<U> && !etl::is_same_v<etl::decay_t<U>, Result>, int> = 0>
+    template<typename U = T>
+        requires(!etl::is_void_v<U> && !etl::is_same_v<etl::decay_t<U>, Result>)
     Result(const U& v) : _type(Type::OK) {
         etl::construct_at(&_storage.success, v);
     }
     /// construct with success value
-    template<typename U = T, etl::enable_if_t<!etl::is_void_v<U> && !etl::is_same_v<etl::decay_t<U>, Result>, int> = 0>
+    template<typename U = T>
+        requires(!etl::is_void_v<U> && !etl::is_same_v<etl::decay_t<U>, Result>)
     Result(U&& v) : _type(Type::OK) {
         etl::construct_at(&_storage.success, etl::forward<U>(v));
     }
 
     /// construct with tagged success value
-    template<typename U = T, etl::enable_if_t<!etl::is_void_v<U> && !etl::is_same_v<etl::decay_t<U>, Result>, int> = 0>
+    template<typename U = T>
+        requires(!etl::is_void_v<U> && !etl::is_same_v<etl::decay_t<U>, Result>)
     Result(ok_t, const U& v) : Result(v) {}
     /// construct with tagged success value
-    template<typename U = T, etl::enable_if_t<!etl::is_void_v<U> && !etl::is_same_v<etl::decay_t<U>, Result>, int> = 0>
+    template<typename U = T>
+        requires(!etl::is_void_v<U> && !etl::is_same_v<etl::decay_t<U>, Result>)
     Result(ok_t, U&& v) : Result(etl::forward<U>(v)) {}
     /// construct with tagged success value for void T
-    template<typename U = T, etl::enable_if_t<etl::is_void_v<U>, int> = 0>
+    template<typename U = T>
+        requires(etl::is_void_v<U>)
     Result(ok_t) : _type(Type::OK) {
         etl::construct_at(&_storage.success, etl::monostate{});
     }
 
     /// create result in intermediary state
-    template<typename V, typename = etl::enable_if_t<etl::is_convertible_v<V, I>>>
+    template<typename V>
+        requires(etl::is_convertible_v<V, I>)
     static Result intermediary(V&& v) {
         Result r;
         etl::construct_at(&r._storage.intermediary, etl::forward<V>(v));
@@ -132,32 +140,28 @@ public:
     }
 
     /// construct with error value when E != T
-    template<
-        typename U = E,
-        typename   = etl::enable_if_t<
-              etl::is_convertible_v<U, E> && !etl::is_same_v<E, T> && !etl::is_same_v<etl::decay_t<U>, Result>>>
+    template<typename U = E>
+        requires(etl::is_convertible_v<U, E> && !etl::is_same_v<E, T> && !etl::is_same_v<etl::decay_t<U>, Result>)
     Result(const U& error) : _type(Type::FAILED) {
         etl::construct_at(&_storage.error, error);
     }
 
     /// construct with error value when E != T
-    template<
-        typename U = E,
-        typename   = etl::enable_if_t<
-              etl::is_convertible_v<U, E> && !etl::is_same_v<E, T> && !etl::is_same_v<etl::decay_t<U>, Result>>>
+    template<typename U = E>
+        requires(etl::is_convertible_v<U, E> && !etl::is_same_v<E, T> && !etl::is_same_v<etl::decay_t<U>, Result>)
     Result(U&& error) : _type(Type::FAILED) {
         etl::construct_at(&_storage.error, etl::forward<U>(error));
     }
 
     /// construct with tagged error value
-    template<
-        typename U = E,
-        typename   = etl::enable_if_t<etl::is_convertible_v<U, E> && !etl::is_same_v<etl::decay_t<U>, Result>>>
+    template<typename U = E>
+        requires(etl::is_convertible_v<U, E> && !etl::is_same_v<etl::decay_t<U>, Result>)
     Result(err_t, U&& e) : _type(Type::FAILED) {
         etl::construct_at(&_storage.error, etl::forward<U>(e));
     }
     /// construct with tagged intermediary value
-    template<typename U, typename = etl::enable_if_t<etl::is_convertible_v<U, I>>>
+    template<typename U>
+        requires(etl::is_convertible_v<U, I>)
     Result(mid_t, U&& i) : _type(Type::INTERMEDIARY) {
         etl::construct_at(&_storage.intermediary, etl::forward<U>(i));
     }
@@ -172,36 +176,33 @@ public:
     /// convert to true if success state
     operator bool() const { return _type == Type::OK; }
 
-    /// get error value
-    /// note: asserts if not in failed state
+    /// Get error value. Asserts if not in failed state.
     const E& error() const {
         spn_assert(is_err());
         return _storage.error;
     }
 
-    /// get intermediary value
-    /// note: asserts if not in intermediary state
+    /// Get intermediary value. Asserts if not in intermediary state.
     const I& intermediary_value() const {
         spn_assert(is_intermediary());
         return _storage.intermediary;
     }
 
-    /// get success value
-    /// note: asserts if not in success state
-    template<typename U = T, etl::enable_if_t<!etl::is_void_v<U>, int> = 0>
+    /// Get success value. Asserts if not in success state.
+    template<typename U = T>
+        requires(!etl::is_void_v<U>)
     const U& value() const {
         spn_assert(is_ok());
         return _storage.success;
     }
-    /// get success value for void T (no-op)
-    /// note: asserts if not in success state
-    template<typename U = T, etl::enable_if_t<etl::is_void_v<U>, int> = 0>
+    /// Get success value for void T (no-op). Asserts if not in success state.
+    template<typename U = T>
+        requires(etl::is_void_v<U>)
     void value() const {
         spn_assert(is_ok());
     }
 
-    /// move error value out
-    /// note: asserts if not in failed state
+    /// Move error value out. Asserts if not in failed state.
     E unwrap_error() {
         spn_assert(is_err());
         E result = etl::move(_storage.error);
@@ -210,8 +211,7 @@ public:
         return result;
     }
 
-    /// move intermediary value out
-    /// note: asserts if not in intermediary state
+    /// Move intermediary value out. Asserts if not in intermediary state.
     I unwrap_intermediary_value() {
         spn_assert(is_intermediary());
         I result = etl::move(_storage.intermediary);
@@ -220,9 +220,9 @@ public:
         return result;
     }
 
-    /// move success value out
-    /// note: asserts if in failed state
-    template<typename U = T, etl::enable_if_t<!etl::is_void_v<U>, int> = 0>
+    /// Move success value out. Asserts if not in success state.
+    template<typename U = T>
+        requires(!etl::is_void_v<U>)
     U unwrap() {
         spn_assert(is_ok());
         U result = etl::move(_storage.success);
@@ -230,35 +230,34 @@ public:
         _type = Type::NO_VALUE;
         return result;
     }
-    /// move success value out for void T (no-op)
-    /// note: asserts if in failed state
-    template<typename U = T, etl::enable_if_t<etl::is_void_v<U>, int> = 0>
+    /// Move success value out for void T (no-op). Asserts if not in success state.
+    template<typename U = T>
+        requires(etl::is_void_v<U>)
     void unwrap() {
         spn_assert(is_ok());
         etl::destroy_at(&_storage.success);
         _type = Type::NO_VALUE;
     }
 
-    /// access success value members
-    /// note: asserts if not in success state
-    template<typename U = T, etl::enable_if_t<!etl::is_void_v<U>, int> = 0>
+    /// Access success value members. Asserts if not in success state.
+    template<typename U = T>
+        requires(!etl::is_void_v<U>)
     const U* operator->() const {
         return &value();
     }
-    /// dereference to success value
-    /// note: asserts if not in success state
-    template<typename U = T, etl::enable_if_t<!etl::is_void_v<U>, int> = 0>
+    /// Dereference to success value. Asserts if not in success state.
+    template<typename U = T>
+        requires(!etl::is_void_v<U>)
     const U& operator*() const {
         return value();
     }
 
-    /// chain processors together, falls through on failure or success
-    /// note: only processes intermediary state
+    /// Chain processors together, falls through on failure or success. Only processes intermediary state.
     template<typename F>
     [[nodiscard]] Result chain(F&& func) {
         using ExpectedResult = Result<etl::decay_t<T>, etl::decay_t<E>, etl::decay_t<I>>;
         static_assert(
-            std::is_invocable_r_v<ExpectedResult, F, I&>,
+            spn::is_invocable_r_v<ExpectedResult, F, I&>,
             "Function passed to chain must return a Result<T, E, I> and take I& as a parameter."
         );
         if (is_err() || is_ok()) {
@@ -267,8 +266,9 @@ public:
         return func(intermediary_value_mut());
     }
 
-    /// transform success value
-    template<typename F, typename U = T, etl::enable_if_t<!etl::is_void_v<U>, int> = 0>
+    /// Transform success value. Returns Result with new success type.
+    template<typename F, typename U = T>
+        requires(!etl::is_void_v<U>)
     [[nodiscard]] auto map(F&& func) const -> Result<invoke_result_t<F, const U&>, E, I> {
         using NewResultType = Result<invoke_result_t<F, const U&>, E, I>;
         if (is_ok()) return NewResultType(func(value()));
@@ -277,7 +277,7 @@ public:
         return NewResultType(); // NO_VALUE case
     }
 
-    /// transform error value
+    /// Transform error value. Returns Result with new error type.
     template<typename F>
     [[nodiscard]] auto map_error(F&& func) const -> Result<T, invoke_result_t<F, const E&>, I> {
         using NewResultType = Result<T, invoke_result_t<F, const E&>, I>;
@@ -293,7 +293,7 @@ public:
         return NewResultType(); // NO_VALUE case
     }
 
-    /// transform intermediary value
+    /// Transform intermediary value. Returns Result with new intermediary type.
     template<typename F>
     [[nodiscard]] auto map_intermediary(F&& func) const -> Result<T, E, invoke_result_t<F, const I&>> {
         using NewResultType = Result<T, E, invoke_result_t<F, const I&>>;
@@ -309,7 +309,7 @@ public:
         return NewResultType(); // NO_VALUE case
     }
 
-    /// chain operation on success
+    /// Chain operation on success. Returns Result from function.
     template<typename F>
     [[nodiscard]] auto and_then(F&& func) const -> SuccessInvokeResultT<F> {
         using NewResultType = SuccessInvokeResultT<F>;
@@ -325,7 +325,7 @@ public:
         return NewResultType(); // NO_VALUE case
     }
 
-    /// provide fallback on error
+    /// Provide fallback on error. Returns Result from function or preserves success.
     template<typename F>
     [[nodiscard]] auto or_else(F&& func) const -> invoke_result_t<F, const E&> {
         using NewResultType = invoke_result_t<F, const E&>;
@@ -341,7 +341,7 @@ public:
         return NewResultType(); // NO_VALUE case
     }
 
-    /// pattern match on all states
+    /// Pattern match on all states. Returns result of called function.
     template<typename SuccessFn, typename ErrorFn, typename IntermediaryFn>
     [[nodiscard]] auto match(SuccessFn&& success_fn, ErrorFn&& error_fn, IntermediaryFn&& intermediary_fn) const {
         if (is_ok()) {
@@ -355,30 +355,31 @@ public:
         return error_fn(error());
     }
 
-    /// get value or default
-    template<class U, typename V = T, etl::enable_if_t<!etl::is_void_v<V>, int> = 0>
+    /// Get success value or return default if not in ok state.
+    template<class U, typename V = T>
+        requires(!etl::is_void_v<V>)
     [[nodiscard]] T value_or(U&& default_value) const {
         if (is_ok()) return value();
         return static_cast<T>(etl::forward<U>(default_value));
     }
 
-    /// get error or default
+    /// Get error value or return default if not in error state.
     template<class U>
     [[nodiscard]] E error_or(U&& default_error) const {
         if (is_err()) return error();
         return static_cast<E>(etl::forward<U>(default_error));
     }
 
-    /// get value or compute fallback
-    template<typename F, typename V = T, etl::enable_if_t<!etl::is_void_v<V>, int> = 0>
+    /// Get success value or compute fallback if not in ok state.
+    template<typename F, typename V = T>
+        requires(!etl::is_void_v<V>)
     [[nodiscard]] T unwrap_or_else(F&& fallback_func) const {
         if (is_ok()) return value();
         return fallback_func();
     }
 
 protected:
-    /// get mutable reference to intermediary value
-    /// note: asserts if not in intermediary state
+    /// Get mutable reference to intermediary value. Asserts if not in intermediary state.
     I& intermediary_value_mut() {
         spn_assert(is_intermediary());
         return _storage.intermediary;
