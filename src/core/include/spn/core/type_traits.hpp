@@ -25,4 +25,22 @@ inline constexpr bool is_function_v = is_function<T>::value;
 template<typename F, typename... Args>
 using invoke_result_t = decltype(etl::declval<F>()(etl::declval<Args>()...));
 
+/// check if callable can be invoked with arguments and return type is convertible to R
+template<typename R, typename F, typename... Args>
+struct is_invocable_r {
+private:
+    template<typename R2, typename F2, typename... Args2>
+    static auto test(int) -> decltype(etl::is_convertible_v<invoke_result_t<F2, Args2...>, R2>, etl::true_type{});
+
+    template<typename, typename, typename...>
+    static etl::false_type test(...);
+
+public:
+    static constexpr bool value = decltype(test<R, F, Args...>(0))::value;
+};
+
+/// convenience variable template for is_invocable_r
+template<typename R, typename F, typename... Args>
+inline constexpr bool is_invocable_r_v = is_invocable_r<R, F, Args...>::value;
+
 } // namespace spn
