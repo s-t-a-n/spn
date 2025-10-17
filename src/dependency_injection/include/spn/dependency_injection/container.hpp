@@ -89,7 +89,9 @@ public:
     template<Provider P>
     [[nodiscard]] constexpr auto inject(P p) const {
         constexpr bool duplicate = [&]<size_t... I>(etl::index_sequence<I...>) {
-            return (... || etl::is_same_v<typename etl::tuple_element_t<I, ProvTuple>::value_type, typename P::value_type>);
+            return (
+                ... || etl::is_same_v<typename etl::tuple_element_t<I, ProvTuple>::value_type, typename P::value_type>
+            );
         }(etl::make_index_sequence<etl::tuple_size_v<ProvTuple>>{});
         static_assert(!duplicate, "duplicate provider for this type");
 

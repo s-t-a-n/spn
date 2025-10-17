@@ -11,7 +11,7 @@ namespace {
 
 using namespace spn::di;
 
-/// test system state
+// test system state
 struct SystemState {
     bool backend_initialized = false;
     bool settings_registered = false;
@@ -33,7 +33,7 @@ struct SystemState {
 SystemState           system_state;
 static constexpr auto state_ref = ref<[]() -> SystemState& { return system_state; }>;
 
-/// phase functions
+// phase functions
 void init_backend(SystemState& state) {
     LOG_INF("backend init phase");
     state.backend_initialized = true;
@@ -73,14 +73,14 @@ ZTEST(phases_tests, test_single_phase_execution) {
 
     auto container = injector() | inject(state_ref) | call_in<phase::configure>(&configure_system);
 
-    /// initially nothing should be done
+    // initially nothing should be done
     zassert_false(system_state.configured, "system should not be configured initially");
 
-    /// run only configure phase
+    // run only configure phase
     container.run_phase<phase::configure>();
     zassert_false(system_state.configured, "system should not be configured without dependencies");
 
-    /// manually set dependencies and retry
+    // manually set dependencies and retry
     system_state.backend_initialized = true;
     system_state.settings_loaded     = true;
     container.run_phase<phase::configure>();
@@ -95,7 +95,7 @@ ZTEST(phases_tests, test_multi_phase_ordering) {
                      | call_in<phase::load_settings>(&load_settings) | call_in<phase::configure>(&configure_system)
                      | call_in<phase::init>(&initialize_system) | call_in<phase::runtime>(&run_system);
 
-    /// run phases in correct order
+    // run phases in correct order
     container.run_phases<
         phase::backend_init,
         phase::register_settings,
@@ -104,7 +104,7 @@ ZTEST(phases_tests, test_multi_phase_ordering) {
         phase::init,
         phase::runtime>();
 
-    /// verify all phases completed successfully
+    // verify all phases completed successfully
     zassert_true(system_state.backend_initialized, "backend should be initialized");
     zassert_true(system_state.settings_registered, "settings should be registered");
     zassert_true(system_state.settings_loaded, "settings should be loaded");
@@ -121,10 +121,10 @@ ZTEST(phases_tests, test_wrong_phase_order) {
                      | call_in<phase::load_settings>(&load_settings) | call_in<phase::configure>(&configure_system)
                      | call_in<phase::init>(&initialize_system);
 
-    /// run phases in wrong order (skip backend_init and register_settings)
+    // run phases in wrong order (skip backend_init and register_settings)
     container.run_phases<phase::load_settings, phase::configure, phase::init>();
 
-    /// verify cascade failure
+    // verify cascade failure
     zassert_false(system_state.backend_initialized, "backend should not be initialized");
     zassert_false(system_state.settings_registered, "settings should not be registered");
     zassert_false(system_state.settings_loaded, "settings should not be loaded without registration");
@@ -139,16 +139,16 @@ ZTEST(phases_tests, test_mixed_phase_and_default) {
                      | call(&register_settings) // default phase
                      | call_in<phase::configure>(&configure_system);
 
-    /// run backend init phase
+    // run backend init phase
     container.run_phase<phase::backend_init>();
     zassert_true(system_state.backend_initialized, "backend should be initialized");
     zassert_false(system_state.settings_registered, "settings should not be registered yet");
 
-    /// run default phase
+    // run default phase
     container.run();
     zassert_true(system_state.settings_registered, "settings should be registered in default phase");
 
-    /// manually prepare for configure phase
+    // manually prepare for configure phase
     system_state.settings_loaded = true;
     container.run_phase<phase::configure>();
     zassert_true(system_state.configured, "system should be configured");
