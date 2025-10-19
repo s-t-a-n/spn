@@ -1,0 +1,6 @@
+west-commands:
+  - file: scripts/west_commands/spn.py
+    commands:
+      - name: spn
+        class: spn
+        help: SPN module commands
