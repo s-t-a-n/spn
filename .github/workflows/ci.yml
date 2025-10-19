@@ -2,197 +2,202 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ develop, main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ develop, main ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  ZEPHYR_VERSION: v3.7.1
-  ZEPHYR_SDK_VERSION: 0.16.8
-  WORKSPACE_DIR: /tmp/zephyr-workspace
-  MANIFEST_REPO: s-t-a-n/spn-workspace
-  MANIFEST_DIR: /tmp/zephyr-workspace/spn-workspace
-  MODULE_DIR: /tmp/zephyr-workspace/spn
+  MANIFEST_REPO: https://github.com/s-t-a-n/spn-workspace.git
+  MANIFEST_REF: develop
 
 jobs:
-  format-check:
-    name: format
-    runs-on: ubuntu-24.04
+  setup-workspace:
+    if: github.event.pull_request.draft == false
+    name: Setup workspace
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/s-t-a-n/spn-ci:v0.1.0
     steps:
-      - name: Checkout
+      - name: Checkout spn repository
         uses: actions/checkout@v4
+        with:
+          path: ws/spn
 
-      - name: Debug environment
-        run: |
-          echo "=== Host Environment ==="
-          echo "User: $(id)"
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          echo "HOME: $HOME"
-          echo "PWD: $PWD"
-
-      - name: Build CI image
-        run: |
-          echo "=== Building Docker Image ==="
-          echo "UID: $(id -u), GID: $(id -g)"
-          docker buildx build -t spn-ci:local \
-            --build-arg ZEPHYR_VERSION=${{ env.ZEPHYR_VERSION }} \
-            --build-arg ZEPHYR_SDK_VERSION=${{ env.ZEPHYR_SDK_VERSION }} \
-            --build-arg USER_UID=$(id -u) \
-            --build-arg USER_GID=$(id -g) \
-            --load \
-            -f .github/ci/Dockerfile \
-            .github/ci
-
-      - name: Run format check inside container
-        run: |
-          echo "=== Running Format Check ==="
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE":/work:ro -w /work \
-            spn-ci:local \
-            bash -lc 'make format_check'
-
-  ci:
-    name: build-test-analyze
-    runs-on: ubuntu-24.04
-    needs: format-check
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Debug environment
-        run: |
-          echo "=== Host Environment ==="
-          echo "User: $(id)"
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          echo "HOME: $HOME"
-
-      - name: Prepare cache directories
-        run: |
-          echo "=== Preparing Cache Directories ==="
-          mkdir -p "$HOME/zephyr-workspace-cache"
-          mkdir -p "$HOME/.cache/zephyr"
-          mkdir -p "$HOME/.cache/ccache"
-          echo "Cache directories created with ownership: $(id -u):$(id -g)"
-          ls -la "$HOME" | grep -E '(zephyr-workspace-cache|\.cache)' || true
-
-      - name: Build CI image
-        run: |
-          echo "=== Building Docker Image ==="
-          echo "UID: $(id -u), GID: $(id -g)"
-          docker buildx build -t spn-ci:local \
-            --build-arg ZEPHYR_VERSION=${{ env.ZEPHYR_VERSION }} \
-            --build-arg ZEPHYR_SDK_VERSION=${{ env.ZEPHYR_SDK_VERSION }} \
-            --build-arg USER_UID=$(id -u) \
-            --build-arg USER_GID=$(id -g) \
-            --load \
-            -f .github/ci/Dockerfile \
-            .github/ci
+      - name: Clone workspace manifest
+        working-directory: ws
+        run: git clone --depth=1 -b ${{ env.MANIFEST_REF }} ${{ env.MANIFEST_REPO }} manifest
 
       - name: Cache Zephyr workspace
+        id: cache
         uses: actions/cache@v4
         with:
-          path: ~/zephyr-workspace-cache
-          key: ws-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-${{ hashFiles('**/CMakeLists.txt', '**/Kconfig') }}
+          path: |
+            ws/zephyr
+            ws/modules
+          key: zephyr-workspace-${{ runner.os }}-${{ hashFiles('ws/manifest/west.yml') }}
           restore-keys: |
-            ws-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-
+            zephyr-workspace-${{ runner.os }}-
 
-      - name: Cache Twister
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/zephyr
-          key: twister-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-${{ hashFiles('**/CMakeLists.txt','**/testcase.yaml','**/prj.conf','zephyr/module.yml') }}
-          restore-keys: |
-            twister-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-
+      - name: Initialize workspace
+        working-directory: ws
+        run: west init -l manifest
 
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ccache
-          key: ccache-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-${{ hashFiles('**/CMakeLists.txt','**/testcase.yaml','**/prj.conf','zephyr/module.yml') }}
-          restore-keys: |
-            ccache-${{ runner.os }}-${{ env.ZEPHYR_VERSION }}-
-
-      - name: Run CI pipeline inside container
-        env:
-          ZEPHYR_VERSION: ${{ env.ZEPHYR_VERSION }}
-          ZEPHYR_SDK_VERSION: ${{ env.ZEPHYR_SDK_VERSION }}
+      - name: Update dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: ws
         run: |
-          echo "=== Running CI Pipeline ==="
-          echo "Mounting source as read-only from: $GITHUB_WORKSPACE"
-          echo "Workspace cache: $HOME/zephyr-workspace-cache"
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE":/work:ro -w /work \
-            -v "$HOME/zephyr-workspace-cache":/tmp/zephyr-workspace \
-            -v "$HOME/.cache/zephyr":/home/runner/.cache/zephyr \
-            -v "$HOME/.cache/ccache":/home/runner/.cache/ccache \
-            -e ZEPHYR_SDK_INSTALL_DIR=/opt/zephyr-sdk-${ZEPHYR_SDK_VERSION} \
-            -e CCACHE_DIR=/home/runner/.cache/ccache \
-            -e ZEPHYR_VERSION="${ZEPHYR_VERSION}" \
-            -e WORKSPACE_DIR=/tmp/zephyr-workspace \
-            -e MANIFEST_REPO="${{ env.MANIFEST_REPO }}" \
-            -e MANIFEST_DIR=/tmp/zephyr-workspace/spn-workspace \
-            -e MODULE_DIR=/tmp/zephyr-workspace/spn \
-            spn-ci:local \
-            bash -lc '
-              set -euo pipefail
-              git config --global --add safe.directory /work || true
-              git config --global --add safe.directory /tmp/zephyr-workspace/spn || true
+          west config manifest.project-filter -- '-spn'
+          west update --narrow
+          west config -d manifest.project-filter
 
-              mkdir -p "$WORKSPACE_DIR"
-              if [ ! -d "$MANIFEST_DIR" ]; then
-                git clone --depth=1 "https://github.com/$MANIFEST_REPO.git" "$MANIFEST_DIR"
-              fi
+      - name: Verify west commands available
+        working-directory: ws
+        run: west spn -h
 
-              cd "$WORKSPACE_DIR"
-              if [ ! -f .west/config ]; then
-                west init -l "$MANIFEST_DIR"
-              fi
-              west update --narrow --fetch-opt=--depth=1
-              west zephyr-export
-              export ZEPHYR_BASE="$WORKSPACE_DIR/zephyr"
-              export ZEPHYR_SDK_INSTALL_DIR="${ZEPHYR_SDK_INSTALL_DIR}"
+      - name: Export workspace
+        working-directory: ws
+        run: west zephyr-export
 
-              mkdir -p "$MODULE_DIR"
-              rsync -a --delete \
-                --exclude='build_*' \
-                --exclude='twister-out' \
-                --exclude='.cache' \
-                --exclude='*.pyc' \
-                --exclude='__pycache__' \
-                /work/ "$MODULE_DIR"/
-
-              export ZEPHYR_EXTRA_MODULES="$MODULE_DIR"
-              export CMAKE_C_COMPILER_LAUNCHER=ccache
-              export CMAKE_CXX_COMPILER_LAUNCHER=ccache
-
-              cd "$MODULE_DIR"
-              make clean # clean out residuals in host build folder
-              timeout -s INT -k 2 1800 make ci
-            '
-
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Cache complete workspace
+        uses: actions/cache/save@v4
         with:
-          name: coverage-report
-          path: ~/zephyr-workspace-cache/spn/build_tests/coverage_report/
-          retention-days: 30
+          path: |
+            ws/zephyr
+            ws/modules
+            ws/spn
+            ws/manifest
+            ws/.west
+          key: workspace-${{ runner.os }}-${{ github.sha }}
 
-      - name: Upload build artifacts on failure
+  format-check:
+    name: Format check
+    runs-on: ubuntu-latest
+    needs: setup-workspace
+    container:
+      image: ghcr.io/s-t-a-n/spn-ci:v0.1.0
+    steps:
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ws/zephyr
+            ws/modules
+            ws/spn
+            ws/manifest
+            ws/.west
+          key: workspace-${{ runner.os }}-${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - name: Run format check
+        working-directory: ws/spn
+        run: west spn format --check
+
+  build-and-test:
+    name: Build and test (${{ matrix.board }})
+    runs-on: ubuntu-latest
+    needs: setup-workspace
+    container:
+      image: ghcr.io/s-t-a-n/spn-ci:v0.1.0
+    strategy:
+      fail-fast: false
+      #max-parallel: 1 # let twister do parallelization
+      matrix:
+        board:
+          - native_sim
+          - qemu_cortex_m3
+          - qemu_cortex_a53/qemu_cortex_a53/smp
+          - nrf52840dk/nrf52840
+          - stm32f469i_disco
+          - esp32_devkitc_wroom/esp32/procpu
+    steps:
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ws/zephyr
+            ws/modules
+            ws/spn
+            ws/manifest
+            ws/.west
+          key: workspace-${{ runner.os }}-${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - name: Build samples
+        working-directory: ws/spn
+        run: west spn build --board ${{ matrix.board }} --verbose
+
+      - name: Run tests
+        working-directory: ws/spn
+        run: west spn test --board ${{ matrix.board }} --verbose
+
+      - name: Sanitize board name for artifact
+        if: failure()
+        id: sanitize
+        run: echo "board_safe=$(echo '${{ matrix.board }}' | tr '/' '_')" >> $GITHUB_OUTPUT
+
+      - name: Upload build and test logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
+          name: logs-${{ steps.sanitize.outputs.board_safe }}
           path: |
-            ~/zephyr-workspace-cache/spn/build_*/
-            ~/zephyr-workspace-cache/spn/twister-out/
+            ws/spn/build_samples/**/*.log
+            ws/spn/build_tests/**/*.log
+            ws/spn/twister-out/**/*.log
           retention-days: 7
+          if-no-files-found: warn
 
-      - name: Evict module from workspace cache
-        if: always()
-        run: rm -rf "$HOME/zephyr-workspace-cache/spn"
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    needs: setup-workspace
+    container:
+      image: ghcr.io/s-t-a-n/spn-ci:v0.1.0
+    steps:
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ws/zephyr
+            ws/modules
+            ws/spn
+            ws/manifest
+            ws/.west
+          key: workspace-${{ runner.os }}-${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - name: Run clang-tidy
+        working-directory: ws/spn
+        run: west spn tidy
+
+      - name: Run cppcheck
+        working-directory: ws/spn
+        run: west spn cppcheck
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: [ setup-workspace, build-and-test ]
+    container:
+      image: ghcr.io/s-t-a-n/spn-ci:v0.1.0
+    steps:
+      - name: Restore workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ws/zephyr
+            ws/modules
+            ws/spn
+            ws/manifest
+            ws/.west
+          key: workspace-${{ runner.os }}-${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - name: Generate coverage report
+        working-directory: ws/spn
+        run: west spn coverage
