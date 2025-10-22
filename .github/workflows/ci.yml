@@ -21,7 +21,7 @@ jobs:
     name: Setup workspace
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/s-t-a-n/spn-ci:v0.1.0
+      image: ghcr.io/s-t-a-n/spn-ci:v0.1.1
     steps:
       - name: Checkout spn repository
         uses: actions/checkout@v4
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup-workspace
     container:
-      image: ghcr.io/s-t-a-n/spn-ci:v0.1.0
+      image: ghcr.io/s-t-a-n/spn-ci:v0.1.1
     steps:
       - name: Restore workspace
         uses: actions/cache/restore@v4
@@ -102,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup-workspace
     container:
-      image: ghcr.io/s-t-a-n/spn-ci:v0.1.0
+      image: ghcr.io/s-t-a-n/spn-ci:v0.1.1
     strategy:
       fail-fast: false
       #max-parallel: 1 # let twister do parallelization
@@ -129,11 +129,11 @@ jobs:
 
       - name: Build samples
         working-directory: ws/spn
-        run: west spn build --board ${{ matrix.board }} --verbose
+        run: west spn build --board ${{ matrix.board }}
 
       - name: Run tests
         working-directory: ws/spn
-        run: west spn test --board ${{ matrix.board }} --verbose
+        run: west spn test --board ${{ matrix.board }}
 
       - name: Sanitize board name for artifact
         if: failure()
@@ -157,7 +157,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup-workspace
     container:
-      image: ghcr.io/s-t-a-n/spn-ci:v0.1.0
+      image: ghcr.io/s-t-a-n/spn-ci:v0.1.1
     steps:
       - name: Restore workspace
         uses: actions/cache/restore@v4
@@ -184,7 +184,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ setup-workspace, build-and-test ]
     container:
-      image: ghcr.io/s-t-a-n/spn-ci:v0.1.0
+      image: ghcr.io/s-t-a-n/spn-ci:v0.1.1
     steps:
       - name: Restore workspace
         uses: actions/cache/restore@v4
