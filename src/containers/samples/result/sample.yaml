@@ -1,0 +1,4 @@
+sample:
+  name: containers result
+tests:
+  spn.containers.sample.result: {}

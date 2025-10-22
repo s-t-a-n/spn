@@ -1,0 +1,4 @@
+sample:
+  name: example lib basic
+tests:
+  spn.example_lib.sample.basic: {}

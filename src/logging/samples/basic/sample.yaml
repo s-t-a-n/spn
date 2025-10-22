@@ -1,0 +1,4 @@
+sample:
+  name: logging basic
+tests:
+  spn.logging.sample.basic: {}

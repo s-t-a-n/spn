@@ -1,0 +1,4 @@
+sample:
+  name: debugging expect assert
+tests:
+  spn.debugging.sample.expect_assert: {}
