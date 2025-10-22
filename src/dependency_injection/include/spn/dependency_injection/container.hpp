@@ -64,23 +64,6 @@ inline constexpr bool has_provider_v = []<size_t... I>(etl::index_sequence<I...>
 /// compile-time dependency injection container
 template<typename ProvTuple, typename CallTuple>
 class container {
-    ProvTuple _prov;
-    CallTuple _calls;
-
-    template<size_t I, typename F>
-    using arg_t = etl::tuple_element_t<I, typename detail::fn_traits<F>::args>;
-
-    template<typename F, size_t... I>
-    static decltype(auto) call_impl(F f, etl::index_sequence<I...>, const ProvTuple& prov) {
-        return f(detail::tuple_find<arg_t<I, F>>(prov)...);
-    }
-
-    template<typename Tag, typename F>
-    static constexpr auto append(CallTuple const& t, F f) {
-        auto rec = call_record<Tag, F>{f};
-        return etl::tuple_cat(t, etl::tuple{rec});
-    }
-
 public:
     constexpr container() = default;
     constexpr container(ProvTuple p, CallTuple c) : _prov(p), _calls(c) {}
@@ -145,10 +128,26 @@ public:
 
     /// run default phase
     constexpr void run() const { run_phase<default_phase>(); }
-};
 
-template<typename P, typename C>
-container(P, C) -> container<P, C>;
+protected:
+    template<size_t I, typename F>
+    using arg_t = etl::tuple_element_t<I, typename detail::fn_traits<F>::args>;
+
+    template<typename F, size_t... I>
+    static decltype(auto) call_impl(F f, etl::index_sequence<I...>, const ProvTuple& prov) {
+        return f(detail::tuple_find<arg_t<I, F>>(prov)...);
+    }
+
+    template<typename Tag, typename F>
+    static constexpr auto append(CallTuple const& t, F f) {
+        auto rec = call_record<Tag, F>{f};
+        return etl::tuple_cat(t, etl::tuple{rec});
+    }
+
+private:
+    ProvTuple _prov;
+    CallTuple _calls;
+};
 
 /// create an empty container
 [[nodiscard]] constexpr auto injector() { return container<etl::tuple<>, etl::tuple<>>{}; }

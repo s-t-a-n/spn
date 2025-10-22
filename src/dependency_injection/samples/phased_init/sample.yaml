@@ -1,0 +1,4 @@
+sample:
+  name: dependency injection phased init
+tests:
+  spn.dependency_injection.sample.phased_init: {}

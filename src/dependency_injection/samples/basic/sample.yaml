@@ -1,0 +1,4 @@
+sample:
+  name: dependency injection basic
+tests:
+  spn.dependency_injection.sample.basic: {}

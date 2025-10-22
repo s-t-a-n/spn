@@ -24,7 +24,7 @@ concept Pipeable = requires(C c, F f) { f(etl::move(c)); };
 template<auto Fn>
 struct ref_t {
     using value_type = decltype(Fn());
-    static_assert(etl::is_lvalue_reference_v<value_type>, "provider must return l-value reference");
+    static_assert(etl::is_lvalue_reference_v<value_type>, "provider must return lvalue reference");
     static constexpr value_type get() { return Fn(); }
 };
 

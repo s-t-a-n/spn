@@ -32,9 +32,9 @@ static void cfg_logger(Logger& l, Logger::Config& cfg) { LOG_INF("logger configu
 static void init_logger(Logger& l) { LOG_INF("logger initialized"); }
 
 /// module definition for phased logger initialization
-inline constexpr auto mod = seq(
-    inject(cfg_ref), inject(logger_ref), call_in<phase::configure>(&cfg_logger), call_in<phase::init>(&init_logger)
-);
+inline constexpr auto mod =
+    seq(inject(cfg_ref), inject(logger_ref), call_in<phase::configure>(&cfg_logger), call_in<phase::init>(&init_logger)
+    );
 
 } // namespace logger
 
