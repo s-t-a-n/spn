@@ -55,6 +55,7 @@
 #include "spn/threading/pacing/spin_pacing.hpp"
 #include "spn/threading/pacing/throttle_pacing.hpp"
 #include "spn/threading/pacing/timer_pacing.hpp"
+#include "spn/threading/poll.hpp"
 #include "spn/threading/ref_guard.hpp"
 #include "spn/threading/semaphore.hpp"
 #include "spn/threading/thread.hpp"
