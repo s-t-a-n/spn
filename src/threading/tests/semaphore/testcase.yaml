@@ -1,0 +1,6 @@
+common:
+  tags: spn threading_primitives semaphore
+  integration_platforms:
+    - native_sim
+tests:
+  spn.threading_primitives.semaphore.unit: {}

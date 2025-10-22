@@ -1,0 +1,4 @@
+sample:
+  name: threading mutex
+tests:
+  spn.threading.sample.mutex: {}
