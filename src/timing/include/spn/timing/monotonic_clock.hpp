@@ -45,10 +45,16 @@ public:
     static constexpr bool is_steady = true;
 
     /// Returns current cycle-based time point
-    static time_point now() { return time_point(duration(k_cycle_get_64())); }
+    static time_point now() { return time_point(duration(cycles())); }
 
-    /// Get current cycle count
-    static uint64_t cycles() { return k_cycle_get_64(); }
+    /// Get current cycle count. Falls back to 32-bit counter when 64-bit unavailable
+    static uint64_t cycles() {
+        if constexpr (IS_ENABLED(CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER)) {
+            return k_cycle_get_64();
+        } else {
+            return k_cycle_get_32();
+        }
+    }
 
     /// Get 32-bit cycle count for lower overhead. Wraps around more frequently
     static uint32_t cycles_32() { return k_cycle_get_32(); }
@@ -158,8 +164,8 @@ void sleep_for(const chrono::duration<Rep, Period>& d) {
         return;
     }
 
-    uint64_t start_cycles = k_cycle_get_64();
-    while ((k_cycle_get_64() - start_cycles) < target_cycles) {
+    uint64_t start_cycles = CycleClock::cycles();
+    while ((CycleClock::cycles() - start_cycles) < target_cycles) {
         // busy wait
     }
 #endif
