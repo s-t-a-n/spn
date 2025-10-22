@@ -1,30 +1,42 @@
-# SPN - Zephyr RTOS Module
+# Spine
 
-A collection of reusable C++20 components for Zephyr RTOS applications.
-
+![CI](https://github.com/s-t-a-n/spn/workflows/CI/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Zephyr](https://img.shields.io/badge/zephyr-compatible-green.svg)
 ![C++](https://img.shields.io/badge/C%2B%2B-20-blue.svg)
 
-## Features
+C++20 components library for Zephyr 3.7
 
-- **Modular Design**: Each library is self-contained with its own tests and samples
-- **C++20 Support**: Modern C++ features for embedded development
-- **Zephyr Integration**: Native Zephyr module with proper CMake and Kconfig integration
-- **Testing Framework**: Comprehensive unit tests using Zephyr's testing framework
-- **Sample Applications**: Ready-to-run examples for each library
+## Rationale
+
+Driving Zephyr through modern c++ is a blast and truly deserving of being unleashed on this beautiful HAL.
+This library builts c++ primitives such as queues/timing/allocators/etc on top of Zephyr's C interface to harvest the
+power of abstraction. This code is the sideproduct of repeated patterns in client work, standardized and tested to a
+reasonable degree.
+
+Open an issue or pull request, it will be greatly appreciated :)
+
+## Zephyr -> ETL -> SPN
+
+This library is built on top of components from the ETL, making it a hard dependency. ETL (Embedded Template Library) is
+an STL alternative written with the static needs of embedded work in mind. The spn api generally doesnt force you to use
+ETL, as the api consists largely of return codes, but etl::result/etl::expect are used in certain locations.
+
+## Modules
+
+- core: holds basic types, traits and functions, like inplace (header friendly) logging
+- debugging:
+- dependency_injector
 
 ## Requirements
 
-- **Zephyr RTOS**: Version 3.4 or later
-- **Toolchain**: Compatible C++20 compiler (GCC 11+, Clang 13+)
-- **West**: Zephyr's meta-tool for project management
+- Zephyr RTOS 3.7 or newer
+- C++20 toolchain: tested on GCC 14
+- West (Zephyr meta-tool)
 
-## Installation
+## Get started
 
-### As a West Module
-
-Add this repository to your West workspace manifest (`west.yml`):
+### using library
 
 ```yaml
 manifest:
@@ -33,145 +45,36 @@ manifest:
       url: https://github.com/s-t-a-n/spn
       revision: main
       path: modules/spn
+      west-commands: modules/spn/west-commands.yml # add if developing spn
 ```
 
-### Manual Integration
+### developing library
 
-Clone the repository and add it to your project's CMakeLists.txt:
-
-```cmake
-get_filename_component(SPN_ROOT "path/to/spn" ABSOLUTE)
-list(APPEND EXTRA_ZEPHYR_MODULES "${SPN_ROOT}")
-```
-
-## Usage
-
-### Include Headers
-
-```cpp
-#include <spn/library_name/header.hpp>
-```
-
-### Link Libraries
-
-In your application's CMakeLists.txt:
-
-```cmake
-target_link_libraries(app PRIVATE spn::library_name)
-```
-
-### Enable in Configuration
-
-Add to your `prj.conf`:
+#### spn development workspace
 
 ```
-CONFIG_SPN_LIBRARY_NAME=y
+[change to your zephyr workspace folder]
+git clone https://github.com/s-t-a-n/spn-workspace.git manifest
+west init -l manifest
+west update
 ```
 
-## Building
+you should be able to run 'west spn', if not, check if manifest includes `west-commands` mentioned above
 
-### Building Samples
-
-Navigate to the module root and build any sample:
-
-```bash
-west build -b <board> src/<library>/samples/<sample_name>
-```
-
-Example for native simulation:
-
-```bash
-west build -b native_sim src/library_name/samples/basic
-west build -t run
-```
-
-### Building Your Application
-
-```bash
-cd your_application
-west build -b <target_board>
-west flash  # if using real hardware
-```
-
-## Testing
-
-Run all tests using Zephyr's Twister framework:
-
-```bash
-# Run all tests
-west twister -T src/ -p native_sim
-
-# Run tests for specific library
-west twister -T src/library_name/tests -p native_sim
-
-# Run with verbose output
-west twister -T src/library_name/tests -p native_sim -v
-```
-
-## Project Structure
+#### spn development building & testing
 
 ```
-spn/
-├── CMakeLists.txt          # Root CMake configuration
-├── Kconfig                 # Root Kconfig file
-├── zephyr/
-│   └── module.yml          # Zephyr module configuration
-├── src/
-│   ├── CMakeLists.txt      # Source directory delegation
-│   ├── Kconfig             # Source Kconfig delegation
-│   └── library_name/       # Individual library
-│       ├── CMakeLists.txt  # Library build configuration
-│       ├── Kconfig         # Library configuration options
-│       ├── include/
-│       │   └── spn/
-│       │       └── library_name/
-│       │           └── *.hpp
-│       ├── src/
-│       │   └── *.cpp
-│       ├── tests/
-│       │   └── library_name/
-│       │       ├── CMakeLists.txt
-│       │       ├── prj.conf
-│       │       ├── testcase.yaml
-│       │       └── test_*.cpp
-│       └── samples/
-│           └── sample_name/
-│               ├── CMakeLists.txt
-│               ├── prj.conf
-│               └── src/
-│                   └── main.cpp
-└── README.md
+west spn build src/<library>/samples/<sample> # build specific test/sample
+west spn build # build all samples
+west spn test src/<library>/tests # build and run specific tests
+west spn test # build and run all tests
+west spn menuconfig src/<library>/samples/<sample>
+west spn run src/<library>/samples/<sample>
+west spn asan # Run tests with asan/ubsan/stackcanaries
+west spn tidy # Run clang-tidy static tests
+west spn ci # Run CI pipeline
 ```
-
-## Configuration Options
-
-Each library provides Kconfig options prefixed with `CONFIG_SPN_`:
-
-- `CONFIG_SPN_LIBRARY_NAME=y` - Enable the library
-- Additional library-specific options as documented per library
-
-## Adding New Libraries
-
-1. Create directory structure under `src/your_library/`
-2. Follow the pattern of existing libraries:
-    - `include/spn/your_library/` for headers
-    - `src/` for implementation
-    - `tests/your_library/` for unit tests
-    - `samples/basic/` for basic usage example
-3. Add Kconfig options with `SPN_` prefix
-4. Update module's `zephyr/module.yml` if adding new test/sample directories
-
-## Contributing
-
-1. Follow the existing code style and structure
-2. Ensure all new code includes comprehensive tests
-3. Provide sample applications for new features
-4. Update documentation for API changes
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For questions, issues, or contributions, please visit the project repository.
+This project is available under the MIT License. See `LICENSE` for the full text.
