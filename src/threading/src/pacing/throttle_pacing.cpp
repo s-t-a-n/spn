@@ -2,8 +2,8 @@
 
 namespace spn::threading {
 
-ThrottlePacing::ThrottlePacing(uint32_t min_interval_ms)
-    : _min_interval_ms(min_interval_ms), _throttle(min_interval_ms), _interrupt_requested(false) {}
+ThrottlePacing::ThrottlePacing(timing::chrono::milliseconds min_interval)
+    : _min_interval(min_interval), _throttle(min_interval), _interrupt_requested(false) {}
 
 void ThrottlePacing::on_enter_running() {
     _interrupt_requested.store(false);
@@ -25,16 +25,17 @@ void ThrottlePacing::wait() {
             return;
         }
 
-        if (const uint32_t remaining = _throttle.time_until_allowed(); remaining == 0) {
+        auto remaining = _throttle.time_until_allowed();
+        if (remaining.count() == 0) {
             k_yield();
         } else {
-            k_sleep(K_MSEC(remaining));
+            k_sleep(timing::to_timeout(remaining));
         }
     }
 }
 
 void ThrottlePacing::after_iteration() {
-    if (_min_interval_ms == 0) {
+    if (_min_interval.count() == 0) {
         k_yield();
     }
 }

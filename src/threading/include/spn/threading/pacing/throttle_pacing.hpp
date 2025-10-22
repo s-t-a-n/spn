@@ -1,6 +1,7 @@
 #pragma once
 
 #include "spn/threading/pacing/pacing_strategy.hpp"
+#include "spn/timing/monotonic_clock.hpp"
 #include "spn/timing/rate_control.hpp"
 
 #include <etl/atomic.h>
@@ -12,7 +13,7 @@ namespace spn::threading {
 /// note: supports up to 1kHz pacing
 class ThrottlePacing : public IPacingStrategy {
 public:
-    explicit ThrottlePacing(uint32_t min_interval_ms);
+    explicit ThrottlePacing(timing::chrono::milliseconds min_interval);
 
     void on_enter_running() override;
 
@@ -25,9 +26,9 @@ public:
     void interrupt() override;
 
 private:
-    uint32_t          _min_interval_ms;
-    timing::Throttle  _throttle;
-    etl::atomic<bool> _interrupt_requested;
+    timing::chrono::milliseconds _min_interval;
+    timing::Throttle             _throttle;
+    etl::atomic<bool>            _interrupt_requested;
 };
 
 } // namespace spn::threading
