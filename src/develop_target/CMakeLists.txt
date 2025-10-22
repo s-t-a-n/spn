@@ -17,6 +17,7 @@ target_link_libraries(app PRIVATE
         spn::system
         spn::debugging
         spn::threading
+        spn::timing
         spn::allocation
         spn::containers
         spn::dependency_injection

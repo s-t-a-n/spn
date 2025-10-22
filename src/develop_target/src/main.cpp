@@ -1,6 +1,8 @@
 #include <zephyr/kernel.h>
 
 // allocation
+#include "spn/allocation/detail/allocator.hpp"
+#include "spn/allocation/detail/deleter.hpp"
 #include "spn/allocation/heap.hpp"
 #include "spn/allocation/pool.hpp"
 #include "spn/allocation/shared_ptr.hpp"
@@ -9,10 +11,14 @@
 
 // containers
 #include "spn/containers/callback.hpp"
-#include "spn/containers/mpmc_deque.hpp"
-#include "spn/containers/mpmc_queue.hpp"
-#include "spn/containers/mpsc_queue.hpp"
-#include "spn/containers/poll.hpp"
+#include "spn/containers/queue/mpmc_deque.hpp"
+#include "spn/containers/queue/mpmc_queue.hpp"
+#include "spn/containers/queue/mpsc_deque.hpp"
+#include "spn/containers/queue/mpsc_queue.hpp"
+#include "spn/containers/queue/spmc_deque.hpp"
+#include "spn/containers/queue/spmc_queue.hpp"
+#include "spn/containers/queue/spsc_queue.hpp"
+#include "spn/containers/queue/spsc_queue_adapter.hpp"
 #include "spn/containers/result.hpp"
 
 // core
@@ -45,9 +51,20 @@
 #include "spn/threading/event.hpp"
 #include "spn/threading/lockguard.hpp"
 #include "spn/threading/mutex.hpp"
+#include "spn/threading/pacing/pacing_strategy.hpp"
+#include "spn/threading/pacing/spin_pacing.hpp"
+#include "spn/threading/pacing/throttle_pacing.hpp"
+#include "spn/threading/pacing/timer_pacing.hpp"
+#include "spn/threading/ref_guard.hpp"
 #include "spn/threading/semaphore.hpp"
 #include "spn/threading/thread.hpp"
 #include "spn/threading/work.hpp"
+
+// timing
+#include "spn/timing/elapsed_timer.hpp"
+#include "spn/timing/monotonic_clock.hpp"
+#include "spn/timing/periodic_timers.hpp"
+#include "spn/timing/rate_control.hpp"
 
 // note: this is a pure stub for ide's like clion which only lint/analyze files which are part of a target.
 
