@@ -38,6 +38,7 @@ public:
     void stop() {
         if (_initialized) {
             k_timer_stop(&_timer);
+            k_timer_status_sync(&_timer);
             _initialized = false;
         }
     }
@@ -96,6 +97,7 @@ public:
     void stop() {
         if (_initialized) {
             k_timer_stop(&_timer);
+            k_timer_status_sync(&_timer);
             _initialized = false;
         }
     }
