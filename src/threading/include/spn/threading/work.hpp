@@ -12,8 +12,8 @@ namespace spn {
 template<typename ArgT, typename OwnerT>
 class Work {
 public:
-    static constexpr bool has_arg = !std::is_void_v<ArgT>;
-    using handler_f               = std::conditional_t<has_arg, void (OwnerT::*)(ArgT*), void (OwnerT::*)()>;
+    static constexpr bool has_arg = !etl::is_void_v<ArgT>;
+    using handler_f               = etl::conditional_t<has_arg, void (OwnerT::*)(ArgT*), void (OwnerT::*)()>;
 
     explicit Work(OwnerT* owner, handler_f handler) {
         k_work_init_delayable(&_cw.work, Work::work_handler);
