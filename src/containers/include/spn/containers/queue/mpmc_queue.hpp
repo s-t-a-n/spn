@@ -10,7 +10,7 @@ class MPMCQueue : public MPMCDeque<T, Capacity> {
     using Base = MPMCDeque<T, Capacity>;
 
 public:
-    using value_type         = Base::value_type;
+    using value_type         = typename Base::value_type;
     using multi_consumer_tag = MultiConsumer;
 
     using Base::Base;

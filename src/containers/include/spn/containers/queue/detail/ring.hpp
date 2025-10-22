@@ -87,7 +87,7 @@ public:
     }
 
 private:
-    using storage_t = etl::aligned_storage<sizeof(T), alignof(T)>::type;
+    using storage_t = typename etl::aligned_storage<sizeof(T), alignof(T)>::type;
 
     static constexpr size_t advance(size_t index) { return (index + 1U) >= Capacity ? 0U : (index + 1U); }
     static constexpr size_t retreat(size_t index) { return index == 0U ? Capacity - 1U : index - 1U; }

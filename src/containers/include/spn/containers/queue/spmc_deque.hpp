@@ -12,7 +12,7 @@ class SPMCDeque : public queue::Deque<T, Capacity, queue::detail::SPMCLockPolicy
     using Base = queue::Deque<T, Capacity, queue::detail::SPMCLockPolicy>;
 
 public:
-    using value_type         = Base::value_type;
+    using value_type         = typename Base::value_type;
     using multi_consumer_tag = MultiConsumer;
 
     using Base::Base;

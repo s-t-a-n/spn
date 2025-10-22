@@ -10,7 +10,7 @@ class MPSCQueue : public MPSCDeque<T, Capacity> {
     using Base = MPSCDeque<T, Capacity>;
 
 public:
-    using value_type          = Base::value_type;
+    using value_type          = typename Base::value_type;
     using single_consumer_tag = SingleConsumer;
 
     using Base::Base;
