@@ -7,6 +7,5 @@ target_include_directories(spn_timing INTERFACE
 
 target_link_libraries(spn_timing INTERFACE
         spn::core
-        spn::debugging
         etl::etl
 )

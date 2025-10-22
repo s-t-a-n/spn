@@ -1,0 +1,4 @@
+sample:
+  name: timing basic
+tests:
+  spn.timing.sample.basic: {}
