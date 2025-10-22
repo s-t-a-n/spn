@@ -21,7 +21,10 @@ public:
     }
 };
 
-static void shutdown_test_before(void* fixture) { set_shutdown_manager(nullptr); }
+static void shutdown_test_before(void* fixture) {
+    set_shutdown_manager(nullptr);
+    reset_shutdown_state();
+}
 
 ZTEST_SUITE(shutdown_suite, NULL, NULL, shutdown_test_before, NULL, NULL);
 
@@ -51,6 +54,7 @@ ZTEST(shutdown_suite, test_shutdown_all_reasons) {
 
     for (auto reason : all_reasons) {
         mgr.reset();
+        reset_shutdown_state();
         request_shutdown(reason);
         k_sleep(K_MSEC(10));
 
@@ -87,6 +91,7 @@ ZTEST(shutdown_suite, test_concurrent_shutdown_requests) {
 
     // ensure subsequent requests are processed after the first completes
     mgr.reset();
+    reset_shutdown_state();
 
     request_shutdown(shutdown_reason::network_failure);
     k_sleep(K_MSEC(10));

@@ -1,0 +1,4 @@
+sample:
+  name: system shutdown manager
+tests:
+  spn.system.sample.shutdown_manager: {}

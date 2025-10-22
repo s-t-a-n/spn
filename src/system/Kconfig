@@ -3,7 +3,7 @@ config SPN_SYSTEM
     select SPN_LOGGING
     select SPN_DEBUGGING
     select ETL if CPP_EXCEPTIONS
-    default y
+    default n
     help
       Enable SPN system utilities including exception handling,
       shutdown management, and fatal error hooks for Zephyr integration.

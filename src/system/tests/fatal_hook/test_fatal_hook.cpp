@@ -26,7 +26,10 @@ public:
     }
 };
 
-static void fatal_hook_test_before(void* fixture) { set_shutdown_manager(nullptr); }
+static void fatal_hook_test_before(void* fixture) {
+    set_shutdown_manager(nullptr);
+    reset_shutdown_state();
+}
 
 ZTEST_SUITE(fatal_hook_suite, NULL, NULL, fatal_hook_test_before, NULL, NULL);
 
@@ -58,6 +61,7 @@ ZTEST(fatal_hook_suite, test_all_fatal_reasons) {
 
     for (auto reason : fatal_reasons) {
         mgr.reset();
+        reset_shutdown_state();
         request_shutdown(reason);
         k_sleep(K_MSEC(10));
 

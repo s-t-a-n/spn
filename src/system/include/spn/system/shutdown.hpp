@@ -45,4 +45,9 @@ void request_shutdown(shutdown_reason reason);
 /// note: calls exit() on native_sim or sys_reboot() on hardware
 void finalize_shutdown();
 
+#ifdef CONFIG_ZTEST
+/// internal function for testing only
+void reset_shutdown_state();
+#endif
+
 } // namespace spn::system

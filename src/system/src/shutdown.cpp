@@ -9,7 +9,9 @@
 
 #ifdef CONFIG_BOARD_NATIVE_SIM
 #    include <stdlib.h>
-#else
+#endif
+
+#ifdef CONFIG_REBOOT
 #    include <zephyr/sys/reboot.h>
 #endif
 
@@ -38,8 +40,6 @@ static void shutdown_work_handler(k_work* work) {
         MLOG_WRN(spn_system, "no shutdown manager set, finalizing immediately");
         finalize_shutdown();
     }
-
-    atomic_set(&g_shutdown_requested, 0);
 }
 
 static ShutdownWork _shutdown_work = {.work = {}, .reason = shutdown_reason::unknown};
@@ -82,9 +82,16 @@ ExceptionHandler* exception_handler() { return _exception_handler; }
 void finalize_shutdown() {
 #ifdef CONFIG_BOARD_NATIVE_SIM
     exit(0);
-#else
+#elif defined(CONFIG_REBOOT)
     sys_reboot(SYS_REBOOT_WARM);
+#else
+    MLOG_WRN(spn_system, "reboot not supported on this platform, halting");
+    k_sleep(K_FOREVER);
 #endif
 }
+
+#ifdef CONFIG_ZTEST
+void reset_shutdown_state() { atomic_set(&g_shutdown_requested, 0); }
+#endif
 
 } // namespace spn::system

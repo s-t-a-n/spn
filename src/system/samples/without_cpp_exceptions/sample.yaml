@@ -1,0 +1,4 @@
+sample:
+  name: system without cpp exceptions
+tests:
+  spn.system.sample.without_cpp_exceptions: {}

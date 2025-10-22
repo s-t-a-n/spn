@@ -38,6 +38,7 @@ struct MockShutdownManager : ShutdownManager {
 static void exception_test_before(void* fixture) {
     set_exception_handler(nullptr);
     set_shutdown_manager(nullptr);
+    reset_shutdown_state();
 }
 
 ZTEST_SUITE(exception_suite, NULL, NULL, exception_test_before, NULL, NULL);

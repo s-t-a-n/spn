@@ -64,6 +64,7 @@ public:
 static void integration_test_before(void* fixture) {
     set_shutdown_manager(nullptr);
     set_exception_handler(nullptr);
+    reset_shutdown_state();
 }
 
 ZTEST_SUITE(integration_suite, NULL, NULL, integration_test_before, NULL, NULL);
@@ -169,6 +170,7 @@ ZTEST(integration_suite, test_concurrent_shutdown_requests) {
     zassert_true(shutdown_mgr.was_called_with(shutdown_reason::user_request));
 
     shutdown_mgr.reset();
+    reset_shutdown_state();
 
     request_shutdown(shutdown_reason::network_failure);
     k_sleep(K_MSEC(10));

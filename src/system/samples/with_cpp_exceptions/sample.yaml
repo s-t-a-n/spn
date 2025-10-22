@@ -1,0 +1,4 @@
+sample:
+  name: system with cpp exceptions
+tests:
+  spn.system.sample.with_cpp_exceptions: {}
