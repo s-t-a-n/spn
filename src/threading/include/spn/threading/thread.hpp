@@ -10,6 +10,9 @@
 
 #include <etl/delegate.h>
 #include <zephyr/kernel.h>
+#if defined(CONFIG_OBJ_CORE_THREAD) || defined(CONFIG_OBJ_CORE_EVENT)
+#    include <zephyr/kernel/obj_core.h>
+#endif
 
 #include <cerrno>
 
@@ -83,7 +86,15 @@ public:
     Thread& operator=(const Thread&)  = delete;
     Thread& operator=(const Thread&&) = delete;
 
-    ~Thread() { stop(); }
+    ~Thread() {
+        stop();
+#ifdef CONFIG_OBJ_CORE_THREAD
+        k_obj_core_unlink(&_thread.obj_core);
+#endif
+#ifdef CONFIG_OBJ_CORE_EVENT
+        k_obj_core_unlink(&_ev.obj_core);
+#endif
+    }
 
     /// Start the thread
     /// note: returns -EINVAL if not in IDLE state

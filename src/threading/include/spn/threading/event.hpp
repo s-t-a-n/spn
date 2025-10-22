@@ -2,6 +2,9 @@
 
 #include <etl/type_traits.h>
 #include <zephyr/kernel.h>
+#ifdef CONFIG_OBJ_CORE_EVENT
+#    include <zephyr/kernel/obj_core.h>
+#endif
 
 namespace spn {
 
@@ -17,7 +20,11 @@ public:
 
 public:
     Event() { k_event_init(&_ev); }
-    ~Event()                       = default;
+    ~Event() {
+#ifdef CONFIG_OBJ_CORE_EVENT
+        k_obj_core_unlink(&_ev.obj_core);
+#endif
+    }
     Event(const Event&)            = delete;
     Event& operator=(const Event&) = delete;
     Event(Event&&)                 = delete;

@@ -3,6 +3,9 @@
 #include "spn/threading/lockguard.hpp"
 
 #include <zephyr/kernel.h>
+#if defined(CONFIG_OBJ_CORE_MUTEX) || defined(CONFIG_OBJ_CORE_CONDVAR)
+#    include <zephyr/kernel/obj_core.h>
+#endif
 
 namespace spn {
 
@@ -12,6 +15,15 @@ public:
     Condition() {
         k_mutex_init(&_mutex);
         k_condvar_init(&_cond);
+    }
+
+    ~Condition() {
+#ifdef CONFIG_OBJ_CORE_MUTEX
+        k_obj_core_unlink(&_mutex.obj_core);
+#endif
+#ifdef CONFIG_OBJ_CORE_CONDVAR
+        k_obj_core_unlink(&_cond.obj_core);
+#endif
     }
 
     /// Lock the mutex

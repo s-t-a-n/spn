@@ -6,6 +6,9 @@
 #include <etl/type_traits.h>
 #include <etl/utility.h>
 #include <zephyr/kernel.h>
+#ifdef CONFIG_OBJ_CORE_MUTEX
+#    include <zephyr/kernel/obj_core.h>
+#endif
 
 namespace spn {
 
@@ -13,7 +16,11 @@ namespace spn {
 class Mutex {
 public:
     Mutex() noexcept { k_mutex_init(&_mutex); }
-    ~Mutex() = default;
+    ~Mutex() {
+#ifdef CONFIG_OBJ_CORE_MUTEX
+        k_obj_core_unlink(&_mutex.obj_core);
+#endif
+    }
 
     Mutex(const Mutex&)            = delete;
     Mutex& operator=(const Mutex&) = delete;
@@ -59,7 +66,7 @@ public:
     LockGuard adopted_lockguard() { return LockGuard{&_mutex, adopt_lock}; }
 
 private:
-    k_mutex _mutex = {};
+    k_mutex _mutex;
 };
 
 } // namespace spn

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <zephyr/kernel.h>
+#ifdef CONFIG_OBJ_CORE_SEM
+#    include <zephyr/kernel/obj_core.h>
+#endif
 
 namespace spn {
 
@@ -9,7 +12,11 @@ template<int InitialCount, int Limit>
 class Semaphore {
 public:
     Semaphore() { k_sem_init(&_sem, InitialCount, Limit); };
-    ~Semaphore() = default;
+    ~Semaphore() {
+#ifdef CONFIG_OBJ_CORE_SEM
+        k_obj_core_unlink(&_sem.obj_core);
+#endif
+    }
 
     Semaphore(const Semaphore&)            = delete;
     Semaphore& operator=(const Semaphore&) = delete;
