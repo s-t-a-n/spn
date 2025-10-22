@@ -34,3 +34,7 @@ if (CONFIG_SPN_DEPENDENCY_INJECTION)
     add_subdirectory(dependency_injection)
 endif ()
 
+if (CONFIG_SPN_TIMING)
+    add_subdirectory(timing)
+endif ()
+
