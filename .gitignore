@@ -6,11 +6,18 @@
 # python
 .venv
 
+# tools
+.actrc
+
 # build
 build*
 twister-out*
-
+.cache
 __pycache__/
+
+# static tools
+*.ctu-info
+*.gcov
 
 # docs
 /doc/_build*
