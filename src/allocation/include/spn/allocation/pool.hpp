@@ -1,8 +1,7 @@
 #pragma once
 
-#include "spn/allocation/detail/allocator.hpp"
-#include "spn/allocation/detail/deleter.hpp"
 #include "spn/allocation/shared_ptr.hpp"
+#include "spn/allocation/types.hpp"
 #include "spn/allocation/unique_ptr.hpp"
 #include "spn/threading/mutex.hpp"
 #include "spn/threading/semaphore.hpp"
@@ -134,26 +133,26 @@ public:
 
     /// Create allocator for pool type
     template<typename U>
-    detail::Allocator<U> allocator() noexcept {
+    Allocator<U> allocator() noexcept {
         static_assert(etl::is_same_v<U, T>, "Pool can only allocate its own type T");
-        return detail::Allocator<U>{this, [](void* ctx, void** out, k_timeout_t timeout) noexcept -> int {
-                                        auto* p = static_cast<Pool<T, N>*>(ctx);
-                                        if (auto rc = p->acquire(out, timeout); rc != 0) return rc;
-                                        if constexpr (!etl::is_trivially_destructible_v<T>)
-                                            etl::destroy_at(static_cast<T*>(*out));
-                                        return 0;
-                                    }};
+        return Allocator<U>{this, [](void* ctx, void** out, k_timeout_t timeout) noexcept -> int {
+                                auto* p = static_cast<Pool<T, N>*>(ctx);
+                                if (auto rc = p->acquire(out, timeout); rc != 0) return rc;
+                                if constexpr (!etl::is_trivially_destructible_v<T>)
+                                    etl::destroy_at(static_cast<T*>(*out));
+                                return 0;
+                            }};
     }
 
     /// Create deleter for pool type. Deleter returns object to pool without calling destructor (by design)
     template<typename U>
-    detail::Deleter<U> deleter() noexcept {
+    Deleter<U> deleter() noexcept {
         static_assert(etl::is_same_v<U, T>, "Pool can only delete its own type T");
-        return detail::Deleter<U>{this, [](void* ctx, void* ptr) noexcept {
-                                      if (ptr == nullptr) return;
-                                      auto* p = static_cast<Pool<T, N>*>(ctx);
-                                      (void)p->release(static_cast<T*>(ptr));
-                                  }};
+        return Deleter<U>{this, [](void* ctx, void* ptr) noexcept {
+                              if (ptr == nullptr) return;
+                              auto* p = static_cast<Pool<T, N>*>(ctx);
+                              (void)p->release(static_cast<T*>(ptr));
+                          }};
     }
 
     /// Create shared_ptr acquiring pre-constructed pool object. By design, object is not destroyed on release. Use
@@ -164,7 +163,7 @@ public:
         if (acquire(&obj_raw, timeout) != 0) return {};
 
         auto obj_del_typed = deleter<T>();
-        auto obj_del       = detail::Deleter<void>(obj_del_typed.context(), obj_del_typed.function());
+        auto obj_del       = Deleter<void>(obj_del_typed.context(), obj_del_typed.function());
 
         void* ctrl_raw = nullptr;
         if (ctrl_storage.template allocator<detail::SharedControlBlock>().allocate(&ctrl_raw, timeout) != 0) {
@@ -173,7 +172,7 @@ public:
         }
 
         auto ctrl_del_typed = ctrl_storage.template deleter<detail::SharedControlBlock>();
-        auto ctrl_del       = detail::Deleter<void>(ctrl_del_typed.context(), ctrl_del_typed.function());
+        auto ctrl_del       = Deleter<void>(ctrl_del_typed.context(), ctrl_del_typed.function());
 
         auto* ctrl = etl::construct_at(static_cast<detail::SharedControlBlock*>(ctrl_raw), obj_raw, obj_del, ctrl_del);
         return shared_ptr<T>(ctrl, static_cast<T*>(obj_raw));

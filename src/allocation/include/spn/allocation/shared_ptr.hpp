@@ -1,7 +1,6 @@
 #pragma once
 
-#include "spn/allocation/detail/allocator.hpp"
-#include "spn/allocation/detail/deleter.hpp"
+#include "spn/allocation/types.hpp"
 
 #include <etl/atomic.h>
 #include <etl/memory.h>
@@ -229,7 +228,7 @@ shared_ptr<T> make_shared(ObjStorage& obj_storage, CtrlStorage& ctrl_storage, k_
     T* obj = etl::construct_at(static_cast<T*>(obj_raw), etl::forward<Args>(args)...);
 
     auto obj_deleter_typed = obj_storage.template deleter<T>();
-    auto obj_del           = detail::Deleter<void>(obj_deleter_typed.context(), obj_deleter_typed.function());
+    auto obj_del           = Deleter<void>(obj_deleter_typed.context(), obj_deleter_typed.function());
 
     auto  ctrl_alloc = ctrl_storage.template allocator<detail::SharedControlBlock>();
     void* ctrl_raw   = nullptr;
@@ -239,7 +238,7 @@ shared_ptr<T> make_shared(ObjStorage& obj_storage, CtrlStorage& ctrl_storage, k_
     }
 
     auto ctrl_deleter_typed = ctrl_storage.template deleter<detail::SharedControlBlock>();
-    auto ctrl_del           = detail::Deleter<void>(ctrl_deleter_typed.context(), ctrl_deleter_typed.function());
+    auto ctrl_del           = Deleter<void>(ctrl_deleter_typed.context(), ctrl_deleter_typed.function());
 
     auto* ctrl = etl::construct_at(
         static_cast<detail::SharedControlBlock*>(ctrl_raw),

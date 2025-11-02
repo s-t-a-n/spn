@@ -1,7 +1,6 @@
 #pragma once
 
-#include "spn/allocation/detail/allocator.hpp"
-#include "spn/allocation/detail/deleter.hpp"
+#include "spn/allocation/types.hpp"
 
 #include <etl/memory.h>
 #include <etl/utility.h>
@@ -10,7 +9,7 @@ namespace spn {
 
 /// Unique_ptr with origin-erased deleter that can return objects to their source allocator
 template<typename T>
-using unique_ptr = etl::unique_ptr<T, detail::Deleter<T>>;
+using unique_ptr = etl::unique_ptr<T, Deleter<T>>;
 
 /// Allocate and construct object. Returns empty unique_ptr on allocation failure or timeout
 template<typename T, typename Storage, typename... Args>

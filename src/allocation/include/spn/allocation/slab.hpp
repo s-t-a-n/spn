@@ -3,9 +3,8 @@
 // Slab wraps Zephyr k_mem_slab to hand out raw fixed blocks with minimal extra bookkeeping.
 // - use a Pool if instances need to be reused without destruction
 
-#include "spn/allocation/detail/allocator.hpp"
-#include "spn/allocation/detail/deleter.hpp"
 #include "spn/allocation/shared_ptr.hpp"
+#include "spn/allocation/types.hpp"
 #include "spn/allocation/unique_ptr.hpp"
 #include "spn/logging/logging.hpp"
 
@@ -94,24 +93,24 @@ public:
 
     /// create allocator for slab type
     template<typename U>
-    detail::Allocator<U> allocator() noexcept {
+    Allocator<U> allocator() noexcept {
         static_assert(etl::is_same_v<U, T>, "Slab can only allocate its own type T");
-        return detail::Allocator<U>{this, [](void* ctx, void** out, k_timeout_t timeout) noexcept -> int {
-                                        auto* s = static_cast<Slab<T, N>*>(ctx);
-                                        if (out == nullptr) return -EINVAL;
-                                        return s->alloc(out, timeout);
-                                    }};
+        return Allocator<U>{this, [](void* ctx, void** out, k_timeout_t timeout) noexcept -> int {
+                                auto* s = static_cast<Slab<T, N>*>(ctx);
+                                if (out == nullptr) return -EINVAL;
+                                return s->alloc(out, timeout);
+                            }};
     }
 
     /// create deleter for slab type
     template<typename U>
-    detail::Deleter<U> deleter() noexcept {
+    Deleter<U> deleter() noexcept {
         static_assert(etl::is_same_v<U, T>, "Slab can only delete its own type T");
-        return detail::Deleter<U>{this, [](void* ctx, void* ptr) noexcept {
-                                      auto* s = static_cast<Slab<T, N>*>(ctx);
-                                      if (ptr == nullptr) return;
-                                      (void)s->destroy(static_cast<T*>(ptr));
-                                  }};
+        return Deleter<U>{this, [](void* ctx, void* ptr) noexcept {
+                              auto* s = static_cast<Slab<T, N>*>(ctx);
+                              if (ptr == nullptr) return;
+                              (void)s->destroy(static_cast<T*>(ptr));
+                          }};
     }
 
     /// create shared_ptr with control block storage

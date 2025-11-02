@@ -1,8 +1,7 @@
 #pragma once
 
-#include "spn/allocation/detail/allocator.hpp"
-#include "spn/allocation/detail/deleter.hpp"
 #include "spn/allocation/shared_ptr.hpp"
+#include "spn/allocation/types.hpp"
 #include "spn/allocation/unique_ptr.hpp"
 
 #include <etl/memory.h>
@@ -79,22 +78,22 @@ public:
 
     /// Create allocator for type T
     template<typename T>
-    detail::Allocator<T> allocator() noexcept {
-        return detail::Allocator<T>{this, [](void* ctx, void** out, k_timeout_t timeout) noexcept -> int {
-                                        auto* h = static_cast<IHeap*>(ctx);
-                                        if (out == nullptr) return -EINVAL;
-                                        return h->template alloc_for<T>(out, timeout);
-                                    }};
+    Allocator<T> allocator() noexcept {
+        return Allocator<T>{this, [](void* ctx, void** out, k_timeout_t timeout) noexcept -> int {
+                                auto* h = static_cast<IHeap*>(ctx);
+                                if (out == nullptr) return -EINVAL;
+                                return h->template alloc_for<T>(out, timeout);
+                            }};
     }
 
     /// Create deleter for type T
     template<typename T>
-    detail::Deleter<T> deleter() noexcept {
-        return detail::Deleter<T>{this, [](void* ctx, void* ptr) noexcept {
-                                      auto* h = static_cast<IHeap*>(ctx);
-                                      if (ptr == nullptr) return;
-                                      (void)h->destroy(static_cast<T*>(ptr));
-                                  }};
+    Deleter<T> deleter() noexcept {
+        return Deleter<T>{this, [](void* ctx, void* ptr) noexcept {
+                              auto* h = static_cast<IHeap*>(ctx);
+                              if (ptr == nullptr) return;
+                              (void)h->destroy(static_cast<T*>(ptr));
+                          }};
     }
 
     /// Create shared_ptr with object and control block storage

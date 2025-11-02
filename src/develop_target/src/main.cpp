@@ -1,12 +1,11 @@
 #include <zephyr/kernel.h>
 
 // allocation
-#include "spn/allocation/detail/allocator.hpp"
-#include "spn/allocation/detail/deleter.hpp"
 #include "spn/allocation/heap.hpp"
 #include "spn/allocation/pool.hpp"
 #include "spn/allocation/shared_ptr.hpp"
 #include "spn/allocation/slab.hpp"
+#include "spn/allocation/types.hpp"
 #include "spn/allocation/unique_ptr.hpp"
 
 // containers
