@@ -17,6 +17,7 @@ from spn_common import (
     env_with,
     find_source_files,
     find_app_roots,
+    find_next_output_dir,
 )
 from external_tools import CLANG_FORMAT, RUN_CLANG_TIDY, GCOVR
 
@@ -37,7 +38,7 @@ class spn(WestCommand):
         subparsers = parser.add_subparsers(dest="command", required=True)
 
         menuconfig = subparsers.add_parser(
-            "menuconfig", help="Run menuconfig for sample/test"
+            "menuconfig", help="run menuconfig for sample/test"
         )
         menuconfig.add_argument("path", help="path to sample/test")
         menuconfig.add_argument(
@@ -224,7 +225,7 @@ class spn(WestCommand):
             base_dir = None
             if args.asan:
                 board = "native_sim"
-                Logger.info(f"ASAN mode enabled - using board: {board}")
+                Logger.info(f"ASAN enabled - using board: {board}")
                 if "tests" in Path(args.path).parts:
                     base_dir = Config.build_tests_asan_dir()
                 elif "samples" in Path(args.path).parts:
@@ -252,13 +253,14 @@ class spn(WestCommand):
             Logger.err("No sample directories found")
             sys.exit(1)
 
+        output = find_next_output_dir(args.output)
         opts = TwisterOpts.build(jobs=args.jobs, verbose=args.verbose)
         test_args = [arg for d in sample_dirs for arg in ["-T", d]]
 
         cmd = (
                 ["west", "twister"] + test_args + ["-p", args.board, "--build-only"]
                 + opts
-                + ["-O", args.output]
+                + ["-O", output]
         )
 
         env = env_with(
@@ -280,13 +282,13 @@ class spn(WestCommand):
                 sys.exit(1)
 
         board = args.board
-        output = args.output
+        base_output = Config.build_tests_asan_dir() if args.asan else args.output
+        output = find_next_output_dir(base_output)
         asan_configs = []
 
         if args.asan:
             board = "native_sim"
-            output = Config.build_tests_asan_dir()
-            Logger.info(f"ASAN mode enabled - using board: {board}")
+            Logger.info(f"ASAN enabled - using board: {board}")
             asan_configs = [f"-x={cfg}" for cfg in Config.asan_configs()]
 
         msg = (
@@ -406,7 +408,7 @@ class spn(WestCommand):
 
     def do_tidy(self, args):
         """Run clang-tidy static analysis"""
-        db_dir = Config.build_compile_db_dir()
+        db_dir = find_next_output_dir(Config.build_compile_db_dir())
         Logger.info("Generating compile database...")
         env = env_with({"ZEPHYR_TOOLCHAIN_VARIANT": "llvm"})
         rc = SubprocessRunner(env=env).run(
@@ -512,7 +514,7 @@ class spn(WestCommand):
         Logger.info(msg)
 
         jobs = args.jobs if args.jobs else Config.default_jobs()
-        output_dir = Config.build_coverage_dir()
+        output_dir = find_next_output_dir(Config.build_coverage_dir())
         line_threshold = getattr(args, "fail_under_line", None) or Config.coverage_line_threshold()
         branch_threshold = getattr(args, "fail_under_branch", None) or Config.coverage_branch_threshold()
         function_threshold = getattr(args, "fail_under_function", None) or Config.coverage_function_threshold()

@@ -155,7 +155,7 @@ jobs:
   static-analysis:
     name: Static analysis
     runs-on: ubuntu-latest
-    needs: setup-workspace
+    needs: [ setup-workspace, build-and-test ]
     container:
       image: ghcr.io/s-t-a-n/spn-ci:v0.1.1
     steps:
