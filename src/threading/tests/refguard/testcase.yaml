@@ -1,0 +1,6 @@
+common:
+  tags: spn threading refguard
+  integration_platforms:
+    - native_sim
+tests:
+  spn.threading_primitives.refguard.unit: { }
