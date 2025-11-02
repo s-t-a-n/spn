@@ -84,20 +84,12 @@ template<typename ExceptionType>
         handler->handle_exception(ex);
     }
 
-    if (!IS_ENABLED(CONFIG_MULTITHREADING)) {
-        k_fatal_halt(K_ERR_KERNEL_PANIC);
+    if constexpr (IS_ENABLED(CONFIG_MULTITHREADING)) {
+        system::request_shutdown(system::shutdown_reason::exception_thrown);
+        k_sleep(K_FOREVER); // park the current thread so the scheduler can cooperatively handle the shutdown
     }
 
-    system::request_shutdown(system::shutdown_reason::exception_thrown);
-
-#    if defined(CONFIG_BOARD_NATIVE_SIM)
-    system::finalize_shutdown(); // when running in simulation, do shut down
-#    endif
-
-    // park the current thread so the scheduler can run the cooperative shutdown
-    for (;;) {
-        k_sleep(K_FOREVER);
-    }
+    system::finalize_shutdown(); // end/cycle the system
 }
 #endif
 

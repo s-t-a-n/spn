@@ -15,9 +15,9 @@
 #    include <zephyr/sys/reboot.h>
 #endif
 
-namespace spn::system {
-
 LOG_MODULE_DECLARE(spn_system);
+
+namespace spn::system {
 
 static ShutdownManager*  _shutdown_manager  = nullptr;
 static ExceptionHandler* _exception_handler = nullptr;
@@ -79,14 +79,16 @@ ExceptionHandler* set_exception_handler(ExceptionHandler* handler) {
 
 ExceptionHandler* exception_handler() { return _exception_handler; }
 
-void finalize_shutdown() {
-#ifdef CONFIG_BOARD_NATIVE_SIM
+[[noreturn]] void finalize_shutdown() {
+#if defined(CONFIG_BOARD_NATIVE_SIM)
     exit(0);
+#elif defined(CONFIG_POWEROFF)
+    sys_poweroff();
 #elif defined(CONFIG_REBOOT)
-    sys_reboot(SYS_REBOOT_WARM);
+    sys_reboot(SYS_REBOOT_COLD);
 #else
-    MLOG_WRN(spn_system, "reboot not supported on this platform, halting");
-    k_sleep(K_FOREVER);
+    MLOG_WRN(spn_system, "power cycling not supported on this platform, panicking");
+    k_fatal_halt(K_ERR_KERNEL_PANIC);
 #endif
 }
 

@@ -43,7 +43,7 @@ void request_shutdown(shutdown_reason reason);
 
 /// final shutdown step when teardown is complete
 /// note: calls exit() on native_sim or sys_reboot() on hardware
-void finalize_shutdown();
+[[noreturn]] void finalize_shutdown();
 
 #ifdef CONFIG_ZTEST
 /// internal function for testing only
