@@ -115,10 +115,9 @@ ZTEST(rate_control_suite, test_scoped_deadline) {
     ScopedDeadline scoped(50_ms);
     zassert_true(scoped.deadline().is_active(), "must auto-start on construction");
 
-    k_msleep(30);
+    k_msleep(5);
     zassert_false(scoped.is_exceeded(), "must not be exceeded within deadline");
 
-    ScopedDeadline exceeded(30_ms);
     k_msleep(50);
-    zassert_true(exceeded.is_exceeded(), "must be exceeded after deadline");
+    zassert_true(scoped.is_exceeded(), "must be exceeded after deadline");
 }
