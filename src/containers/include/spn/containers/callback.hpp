@@ -1,42 +1,70 @@
 #pragma once
 
-#include <etl/delegate.h>
-#include <zephyr/sys/atomic.h>
+#include "spn/threading/refguard.hpp"
+
+#include <etl/atomic.h>
+#include <etl/expected.h>
+#include <etl/type_traits.h>
+#include <etl/utility.h>
+#include <zephyr/kernel.h>
+
+#include <cerrno>
 
 namespace spn {
 
-/// Threadsafe container to store a callback function
-template<typename T>
-class Callback {
+/// Hot-swappable detachable and joinable callback. (ISR safe)
+/// Also see callback_delegate.hpp which employs etl::delegate that allows passing non-capturing lambda's
+template<typename R, typename... Args>
+class callback {
 public:
-    using callback_f = etl::delegate<void(const T&)>;
+    using callback_f = R (*)(Args...);
 
-    Callback() = default;
-    explicit Callback(const callback_f& f) { attach(f); }
+    callback() = default;
 
-    /// Attach a callback function
-    void attach(const callback_f& f) {
-        auto* current = static_cast<callback_f*>(atomic_ptr_get(&_ptr));
-        auto  next    = (current == &_slots[0]) ? &_slots[1] : &_slots[0];
-        *next         = f;           // prepare new value
-        atomic_ptr_set(&_ptr, next); // publish atomically
+    ~callback() { (void)_guard.teardown(K_FOREVER); }
+
+    callback(const callback&)            = delete;
+    callback& operator=(const callback&) = delete;
+    callback(callback&&)                 = delete;
+    callback& operator=(callback&&)      = delete;
+
+    /// Attach callback function. Hot-swappable during invoke. Accepts nullptr.
+    void attach(callback_f f) {
+        _fn.store(f, etl::memory_order_seq_cst);
+        _guard.allow_acquisitions();
     }
-    /// Detach the callback function
-    void detach() { atomic_ptr_set(&_ptr, nullptr); }
 
-    /// Returns true if a callback function is attached
-    bool     is_attached() const { return atomic_ptr_get(&_ptr) != nullptr; }
-    explicit operator bool() const { return is_attached(); }
-
-    /// Invoke callback with the given value. Returns true if the callback function was called
-    bool invoke(const T& v) const {
-        auto* p = static_cast<callback_f*>(atomic_ptr_get(&_ptr));
-        return p ? p->call_if(v) : false; // safe, no locks
+    /// Detach callback function.
+    void detach() {
+        _fn.store(nullptr, etl::memory_order_seq_cst);
+        _guard.deny_acquisitions();
     }
+
+    /// Wait for active invocations to complete. Returns 0 on success, -ETIMEDOUT on timeout.
+    [[nodiscard]] int join(k_timeout_t timeout) const { return _guard.wait_for_release(timeout); }
+
+    /// Invoke attached callback. Returns function result or error code. (ISR safe)
+    etl::expected<R, int> invoke(Args... args) const {
+        auto ref = _guard.try_acquire_scoped();
+        if (!ref) return etl::unexpected{-EAGAIN};
+
+        auto* fn = _fn.load(etl::memory_order_seq_cst);
+        if (fn == nullptr) return etl::unexpected{-ENOENT};
+
+        if constexpr (etl::is_void_v<R>) {
+            fn(etl::forward<Args>(args)...);
+            return etl::expected<void, int>{};
+        } else {
+            return fn(etl::forward<Args>(args)...);
+        }
+    }
+
+    /// Returns true if a callback function is attached. (ISR safe)
+    bool is_attached() const { return _fn.load(etl::memory_order_seq_cst) != nullptr; }
 
 private:
-    atomic_ptr_t _ptr = ATOMIC_PTR_INIT(nullptr);
-    callback_f   _slots[2]{}; // double-buffered storage
+    etl::atomic<callback_f> _fn{nullptr};
+    mutable RefGuard        _guard;
 };
 
 } // namespace spn
